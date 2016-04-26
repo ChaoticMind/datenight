@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+
+	<!-- favicon -->
+	<link rel="icon" href="img/favicon.ico"/>
+
+	<!-- bootstrap -->
+<!--
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+-->
+	<!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css"> -->
+	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/lib/bootstrap.min.css') }}"/>
+
+	<!-- lesscss -->
+	<link rel="stylesheet/less" type="text/css" href="{{ url_for('static', filename='css/style.less') }}"/>
+<!--
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/less.js/2.6.1/less.min.js" type="application/javascript"></script>
+-->
+	<script src="{{ url_for('static', filename='js/lib/less.min.js') }}" type="application/javascript"></script>
+
+	<!-- socket.io -->
+<!--
+	<script type="application/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.5/socket.io.min.js"></script>
+-->
+	<script src="{{ url_for('static', filename='js/lib/socket.io.min.js') }}" type="application/javascript"></script>
+
+	<title>Datenight</title>
+</head>
+<body>
+	<div id="container" class='container-fluid'>
+	<!-- <div id="container" class='container'> -->
+		<h2>Datenight dashboard</h2>
+
+		<div class="row">
+			<div class="col-sm-12">
+				<div id="subscribers_info"></div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-sm-12">
+				<div id='publishers_info'></div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-sm-3">
+				Poor man's chat:
+			</div>
+			<div class="col-sm-9">
+				<form id="broadcast" action='#'>
+					<input type="text" name="broadcast_data" id="broadcast-data" placeholder="Message">
+					<button id="send-broadcast" type="submit" class="btn btn-default">Broadcast</button>
+				</form>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-sm-12">
+				<button id="clear" class="btn btn-default">Clear log</button>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-sm-12">
+				<div id="log"></div>
+			</div>
+		</div>
+
+		<div class="modal fade" id="help-screen">
+			<div class="modal-dialog">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title">I want more features!</h4>
+					</div>
+					<div class="modal-body">
+						<h5>I would like to:</h5>
+						<dl class="dl-horizontal">
+							<dt>have audio/video chat</dt><dd>We recommend using a WebRTC implementation such as Firefox Hello, talky.io, or appear.in</dd>
+							<dt>have a better chat</dt><dd>We suggest you use Jabber or Signal-Desktop</dd>
+							<dt>share media</dt><dd>We recommend using Mega, OnionShare, or `python -m http`</dd>
+						</dl>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-primary" data-dismiss="modal">Close</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div id="help-toggle">
+		<a href="#" tabindex="-1">?</a>
+	</div>
+	<footer></footer>
+
+	<!-- bootstrap js -->
+<!--
+	<script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+-->
+	<script src="{{ url_for('static', filename='js/lib/jquery-2.2.3.min.js') }}" type="application/javascript"></script>
+	<script src="{{ url_for('static', filename='js/lib/bootstrap.min.js') }}" type="application/javascript"></script>
+
+	<!-- js -->
+	<script src="{{ url_for('static', filename='js/util.js') }}" type="application/javascript"></script>
+	<script src="{{ url_for('static', filename='js/datenight.js') }}" type="application/javascript"></script>
+</body>
+</html>
