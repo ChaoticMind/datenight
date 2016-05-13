@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 class Publisher():
 	ping_delay = 5
-	timeout_threshold = 60
+	timeout_threshold = 20
 
 	def __init__(self, sid, nick):
 		self.__sid = sid
