@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import logging
 import argparse
 
@@ -30,7 +30,7 @@ def main():
 
 	# run flask
 	socketio.run(app, debug=True)
-	# socketio.run(app, host='0.0.0.0', debug=False)
+	# socketio.run(app, host='0.0.0.0', port=5500, debug=False)
 
 
 if __name__ == '__main__':

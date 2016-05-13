@@ -13,8 +13,9 @@ function initialize() {
 }
 
 function websock() {
-  var namespace = '/publish';
-  var socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
+  const namespace = '/publish';
+  const protocol = window.location.protocol;
+  let socket = io.connect(protocol + '//' + document.domain + ':' + location.port + namespace);
 
   socket.on('connect', function() {
     add_to_log("Connected...");

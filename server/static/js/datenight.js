@@ -27,7 +27,7 @@ function initialize() {
 
 function update_subscription_list(text) {
   let subscription_element = document.getElementById("subscribers_info");
-  var content = "Connected subscribers: ";
+  let content = "Connected subscribers: ";
   for (let e of text) {  // TODO: add to DOM in a sane way
     if (e == nick) {
       content += "<span class='red'>" + e + "</span>, ";
@@ -49,8 +49,9 @@ function update_nick(old_nick, new_nick) {
 
 
 function websock() {
-  var namespace = '/subscribe';
-  var socket = io.connect('http://' + document.domain + ':' + location.port + namespace);
+  const namespace = '/subscribe';
+  const protocol = window.location.protocol;
+  let socket = io.connect(protocol + '//' + document.domain + ':' + location.port + namespace);
 
   socket.on('connect', function() {
     add_to_log("Connected...");
@@ -95,7 +96,7 @@ function websock() {
   });
 
   socket.on('update publishers', function(msg) {
-    var html_items = "<br/>";
+    let html_items = "<br/>";
     const data = msg.data;
     for (let x in data) {
       if (!data.hasOwnProperty(x)) {
@@ -112,7 +113,7 @@ function websock() {
       add_to_log('Publisher "' + msg.old + '" has left.');
     } else if (msg.update) {
       if (msg.show) {
-        let relevant = msg.data[msg.update];
+        const relevant = msg.data[msg.update];
         add_to_log('Publisher "' + msg.update + '" updated state. (' + JSON.stringify(relevant) + ')');
       }
     } else {
@@ -126,12 +127,15 @@ function websock() {
 
   document.getElementById("send-broadcast").onclick = function() {
     const content = document.getElementById("broadcast-data").value;
+    if (!content)
+      return false;
+
     if (content.startsWith('/help')) {
       socket.emit("help", null, function(msg) {
         document.getElementById("broadcast-data").value = "";
       });
     } else if (content.startsWith('/nick ')) {
-      let new_nick = content.substring("/nick ".length);
+      const new_nick = content.substring("/nick ".length);
       socket.emit("change nick", {new: new_nick}, function(msg) {
         document.getElementById("broadcast-data").value = "";
       });
@@ -146,7 +150,7 @@ function websock() {
 }
 
 function hotkeys(evt) {
-  var key = evt.key.toLowerCase();
+  const key = evt.key.toLowerCase();
   // console.log(key);
   if (key == '?') {
     $('#help-screen').modal('toggle');

@@ -7,8 +7,7 @@ are consuming the same media together over the internet.
 #### TODO ####
   - client for linux
   - client for osx
-  - tls cert on dummy server
-  - publisher: on connect, send nick, filename, hash
+  - publisher: on connect, send nick
   - add web client commands: /pause, /resume, /seek
   - support multiple rooms
   - client for windows
