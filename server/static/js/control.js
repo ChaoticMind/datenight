@@ -39,6 +39,10 @@ function websock() {
     }
   });
 
+  socket.on('latency_ping', function(msg) {
+    socket.emit('latency_pong', {'token': msg.token});
+  });
+
   document.getElementById("send-state").onclick = function() {
     const max = 5*60;
     const pos = Math.floor(Math.random() * (max + 1));

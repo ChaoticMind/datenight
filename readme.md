@@ -5,10 +5,10 @@ are consuming the same media together over the internet.
 
 
 #### TODO ####
-  - hearbeat for publishers
   - client for linux
   - client for osx
   - tls cert on dummy server
+  - publisher: on connect, send nick, filename, hash
   - add web client commands: /pause, /resume, /seek
   - support multiple rooms
   - client for windows

@@ -111,7 +111,10 @@ function websock() {
     } else if (msg.old) {
       add_to_log('Publisher "' + msg.old + '" has left.');
     } else if (msg.update) {
-      add_to_log('Publisher "' + msg.update + '" updated state.');
+      if (msg.show) {
+        let relevant = msg.data[msg.update];
+        add_to_log('Publisher "' + msg.update + '" updated state. (' + JSON.stringify(relevant) + ')');
+      }
     } else {
       // got full data with no nick change, probably on initial connect
       add_to_log('Received complete publisher list.');

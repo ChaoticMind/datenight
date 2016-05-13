@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 def connect_subscriber():
 	log.info("Connecting subscriber {}".format(request.sid))
 	other_subscriber_nicks = {z['nick'] for z in subscribers.values()}
-	other_nicks = other_subscriber_nicks.union({z['nick'] for z in publishers.values()})
+	other_nicks = other_subscriber_nicks.union({z.nick for z in publishers.values()})
 
 	if request.sid in subscribers:
 		raise RuntimeError("{} (subscriber) Connected twice.".format(request.sid))
@@ -57,7 +57,7 @@ def update_nick(msg):
 		emit("log message", {"data": "Your nick is already {}".format(new_nick)})
 		return
 	else:
-		other_nicks = subscribers_nicks.union({z['nick'] for z in publishers.values()})
+		other_nicks = subscribers_nicks.union({z.nick for z in publishers.values()})
 		if new_nick in other_nicks:
 			emit("log message", {"data": "Nick {} already exists".format(new_nick)})
 			return
