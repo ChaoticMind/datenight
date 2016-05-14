@@ -1,5 +1,6 @@
 import logging
 
+from gi.repository import GLib
 from socketIO_client import BaseNamespace
 
 from client.socketio_patched import SocketIOPatched
@@ -11,6 +12,10 @@ class PublishNamespace(BaseNamespace):
 	def on_latency_ping(self, msg):
 		log.info("Received latency_ping...")
 		self.emit('latency_pong', msg)
+
+	def on_pause(self, msg):
+		log.info("Received pause request")
+		self.player.pause()
 
 	def on_log_message(self, msg):
 		try:
@@ -30,24 +35,29 @@ class PublishNamespace(BaseNamespace):
 	def on_error(self, msg):
 		log.error("socketio error: {}".format(msg))
 
+	def wait(self, *args, **kwargs):
+		self._io.wait(*args, **kwargs)
+
+	def regular_peek(self):
+		# log.info("Peeking")
+		self.wait(seconds=0.01)
+		# log.info("Peeked")
+		# GLib.idle_add(self.regular_peek)
+		# GLib.timeout_add(500, self.regular_peek)
+		return True
+
 
 class DatenightWS():
-	def __init__(self):
+	"""This class is now superflous, remove it"""
+	def __init__(self, player):
 		logging.getLogger('').setLevel(logging.DEBUG)
 
-		# self.socket_io = SocketIO('localhost', 5000)
-		self.socket_io = SocketIOPatched('localhost', 5000)
+		socket_io = SocketIOPatched('localhost', 5000)
 		log.info("Connected...")
-		self.publish = self.socket_io.define(PublishNamespace, '/publish')
+		publish = socket_io.define(PublishNamespace, '/publish')
+		publish.player = player
+		player.sock = publish
 		log.info("Connected to /publish")
-		# self.socket_io.wait(seconds=0)
-		self.socket_io.wait(seconds=0.05)
-		# self.disconnect()
-
-	def emit(self, *args, **kwargs):
-		self.publish.emit(*args, **kwargs)
-
-	def disconnect(self):
-		log.info("Disconnecting...")
-		self.socket_io.disconnect()
-		log.info("Disconnected...")
+		# socket_io.wait(seconds=0)
+		# GLib.idle_add(publish.regular_peek)
+		GLib.timeout_add(50, publish.regular_peek)

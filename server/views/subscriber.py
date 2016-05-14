@@ -43,7 +43,15 @@ def connect_subscriber():
 @socketio.on("help", namespace='/subscribe')
 def display_help(_):
 	log.info("help requested")
-	emit("log message", {"data": 'Commands are: "/help" "/nick &lt;nick&gt;"'})
+	emit("log message", {"data": 'Commands are: "/help" "/nick &lt;nick&gt;", "/pause"'})
+
+
+@socketio.on("pause", namespace='/subscribe')
+def request_pause(_):
+	log.info("pause requested by {}".format(request.sid))
+	requester_nick = subscribers[request.sid]['nick']
+	emit("log message", {"data": 'Pause requested by "{}"'.format(requester_nick)}, namespace="/subscribe", broadcast=True, include_self=True)
+	emit("pause", namespace="/publish", broadcast=True)
 
 
 @socketio.on("change nick", namespace='/subscribe')

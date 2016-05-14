@@ -9,6 +9,8 @@ from gi.repository import Playerctl, GLib
 from client.vlc import VLCClient
 from client.websocket import DatenightWS
 
+log = logging.getLogger(__name__)
+
 
 def main():
 	# argparse setup
@@ -36,8 +38,9 @@ def main():
 	# main loop
 	vlc_player = Playerctl.Player(player_name='vlc')
 	# generic_player = Playerctl.Player()  # generic client
-	ws = DatenightWS()
-	VLCClient(vlc_player, ws)
+	client = VLCClient(vlc_player)
+	DatenightWS(client)
+
 	main = GLib.MainLoop()
 	main.run()
 

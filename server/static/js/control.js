@@ -40,6 +40,10 @@ function websock() {
     }
   });
 
+  socket.on('pause', function(msg) {
+    add_to_log("Pause requested");
+  });
+
   socket.on('latency_ping', function(msg) {
     socket.emit('latency_pong', {'token': msg.token});
   });

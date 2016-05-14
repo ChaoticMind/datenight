@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 class Publisher():
 	ping_delay = 5
-	timeout_threshold = 20
+	timeout_threshold = 12
 
 	def __init__(self, sid, nick):
 		self.__sid = sid
@@ -26,7 +26,7 @@ class Publisher():
 		self.__ping_token = None
 		self.__ping_ts = None
 		self.__heartbeat = eventlet.greenthread.spawn_n(self.__ping)
-		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__timeout)
+		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__process_timeout)
 
 	def __ping(self):
 		log.debug("{}: ping request".format(self.__sid))
@@ -35,10 +35,11 @@ class Publisher():
 		socketio.emit('latency_ping', {"token": self.__ping_token}, namespace='/publish', room=self.__sid)
 		self.__heartbeat = eventlet.greenthread.spawn_after(self.ping_delay, self.__ping)
 
-	def __timeout(self):
+	def __process_timeout(self):
 		log.info("{}: no ping reply in {} seconds, setting latency to -1".format(self.__sid, self.timeout_threshold))
 		self.latency = -1
-		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__timeout)
+		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__process_timeout)
+		socketio.emit('update publishers', {'data': clean_publishers(), 'update': self.nick, 'show': False}, namespace='/subscribe', broadcast=True)
 
 	def pong(self, token):
 		log.debug("{}: pong received".format(self.__sid))
@@ -50,7 +51,7 @@ class Publisher():
 
 		# reset timeout
 		self.__timeout.cancel()
-		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__timeout)
+		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__process_timeout)
 
 	def dict_repr(self):
 		"""Don't expose private data, this is sent over the wire"""

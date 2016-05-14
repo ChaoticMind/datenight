@@ -5,9 +5,8 @@ log = logging.getLogger(__name__)
 
 
 class VLCClient():
-	def __init__(self, player, ws):
+	def __init__(self, player):
 		self.player = player
-		self.__ws = ws
 
 		self.player.on('play', self._on_play)
 		self.player.on('pause', self._on_pause)
@@ -15,13 +14,19 @@ class VLCClient():
 		self.player.on('metadata', self._on_metadata)
 
 		# start playing some music
-		self.player.stop()
-		time.sleep(0.2)
-		self.player.play()
+		# self.player.play_pause()
+		# print(self.player.__dict__)
+		# time.sleep(0.2)
+		# self.player.play()
+		log.info("Initialized player")
 
 		if self.player.get_artist() == 'Lana Del Rey':
 			# I meant some good music!
 			self.player.next()
+
+	def pause(self):
+		log.info("Pausing")
+		self.player.pause()
 
 	def _on_metadata(self, player, e):
 		if 'xesam:artist' in e.keys() and 'xesam:title' in e.keys():

@@ -18,7 +18,9 @@ are consuming the same media together over the internet.
   - client for osx
   - publisher: on connect, send nick, user-agent
   - add web client commands: /pause, /resume, /seek
+  - use Gooey
   - migrate client to twisted/autobahn/sockjs
   - save publishers as objects on datenight.js + only send relevant data from server
   - support multiple rooms
   - client for windows
+  - after "stability" is reached, split client/server into separate repos

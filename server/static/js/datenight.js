@@ -139,6 +139,10 @@ function websock() {
       socket.emit("change nick", {new: new_nick}, function(msg) {
         document.getElementById("broadcast-data").value = "";
       });
+    } else if (content.startsWith('/pause')) {
+      socket.emit("pause", null, function(msg) {
+        document.getElementById("broadcast-data").value = "";
+      });
     } else {
       socket.emit('broadcast message', {data: content}, function(msg) {
         add_to_log('You: ' + msg);
