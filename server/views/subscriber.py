@@ -37,6 +37,7 @@ def connect_subscriber():
 	emit('update subscriptions', {'complete': list(other_subscriber_nicks), 'new': x, 'old': None}, broadcast=True, include_self=False)
 
 	emit('update publishers', {'data': clean_publishers()})
+	return True
 
 
 @socketio.on("help", namespace='/subscribe')
@@ -52,7 +53,11 @@ def update_nick(msg):
 
 	subscribers_nicks = {z['nick'] for z in subscribers.values()}
 	old_nick = subscribers[request.sid]['nick']
-	new_nick = msg['new']
+	try:
+		new_nick = msg['new']
+	except KeyError:
+		emit("log message", {"data": "obey the API!".format(new_nick)})
+		return
 	if old_nick == new_nick:
 		emit("log message", {"data": "Your nick is already {}".format(new_nick)})
 		return
@@ -73,8 +78,13 @@ def update_nick(msg):
 def broadcast_message(message):
 	log.info("Subscriber broadcasting: {}".format(message))
 	nick = subscribers[request.sid]['nick']
-	emit('log message', {'data': message['data'], 'nick': nick}, broadcast=True, include_self=False)
-	return message['data']
+	try:
+		content = message['data']
+	except KeyError:
+		pass
+	else:
+		emit('log message', {'data': content, 'nick': nick}, broadcast=True, include_self=False)
+		return message['data']
 
 
 @socketio.on('disconnect', namespace='/subscribe')

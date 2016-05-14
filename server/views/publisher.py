@@ -25,7 +25,7 @@ class Publisher():
 		self.position = -1
 		self.__ping_token = None
 		self.__ping_ts = None
-		self.__heartbeat = eventlet.greenthread.spawn(self.__ping)
+		self.__heartbeat = eventlet.greenthread.spawn_n(self.__ping)
 		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__timeout)
 
 	def __ping(self):
@@ -91,12 +91,14 @@ def connect_publisher():
 
 	log.info("A publisher just connected (id={}, nick={}) - total publishers: {}) connected to control".format(request.sid, x, len(publishers)))
 	emit('update publishers', {'data': clean_publishers(), 'new': x, 'old': None}, namespace='/subscribe', broadcast=True)
+	return True
 
 
 @socketio.on('update state', namespace='/publish')
 def message_trigger(message):
 	log.info("Publisher state updated: {}".format(message))
 	nick = publishers[request.sid].nick
+	# TODO: accept partial updates
 	publishers[request.sid].status = message['status']
 	publishers[request.sid].position = message['position']
 	emit('update publishers', {'data': clean_publishers(), 'update': nick, 'show': True}, namespace='/subscribe', broadcast=True)

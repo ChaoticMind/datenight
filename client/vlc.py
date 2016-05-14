@@ -5,8 +5,10 @@ log = logging.getLogger(__name__)
 
 
 class VLCClient():
-	def __init__(self, player):
+	def __init__(self, player, ws):
 		self.player = player
+		self.__ws = ws
+
 		self.player.on('play', self._on_play)
 		self.player.on('pause', self._on_pause)
 		self.player.on('stop', self._on_stop)
