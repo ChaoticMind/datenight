@@ -9,5 +9,12 @@ function add_to_log(text) {
   const time_string = now.toTimeString();
   const timestamp = time_string.substr(0, time_string.indexOf(" "));
 
-  log_element.innerHTML += ("<br/>" + timestamp + " - " + text);
+
+  // prepend
+  log_element.innerText = ("\n" + timestamp + " - " + text) + log_element.innerText;
+  // or append
+  // log_element.innerText += ("\n" + timestamp + " - " + text);
+
+  // o.O -- couldn't get it to work without innerText :/
+  // log_element.innerHTML = log_element.innerHTML.replace(/\r\n/g, '<br/>');
 }

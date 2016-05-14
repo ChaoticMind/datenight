@@ -15,7 +15,20 @@ class PublishNamespace(BaseNamespace):
 
 	def on_pause(self, msg):
 		log.info("Received pause request")
-		self.player.pause()
+		self.client.pause()
+
+	def on_resume(self, msg):
+		log.info("Received resume request")
+		self.client.resume()
+
+	def on_seek(self, msg):
+		log.info("Received seek request to {}".format(msg))
+		try:
+			seek_dst = int(msg['seek'])
+		except (KeyError, ValueError):
+			log.info("Invalid seek destination, ignoring...")
+		else:
+			self.client.seek(seek_dst)
 
 	def on_log_message(self, msg):
 		try:
@@ -40,7 +53,7 @@ class PublishNamespace(BaseNamespace):
 
 	def regular_peek(self):
 		# log.info("Peeking")
-		self.wait(seconds=0.01)
+		self.wait(seconds=0.025)
 		# log.info("Peeked")
 		# GLib.idle_add(self.regular_peek)
 		# GLib.timeout_add(500, self.regular_peek)
@@ -49,15 +62,15 @@ class PublishNamespace(BaseNamespace):
 
 class DatenightWS():
 	"""This class is now superflous, remove it"""
-	def __init__(self, player):
+	def __init__(self, client):
 		logging.getLogger('').setLevel(logging.DEBUG)
 
 		socket_io = SocketIOPatched('localhost', 5000)
 		log.info("Connected...")
 		publish = socket_io.define(PublishNamespace, '/publish')
-		publish.player = player
-		player.sock = publish
+		publish.client = client
+		client.sock = publish
 		log.info("Connected to /publish")
 		# socket_io.wait(seconds=0)
 		# GLib.idle_add(publish.regular_peek)
-		GLib.timeout_add(50, publish.regular_peek)
+		GLib.timeout_add(10, publish.regular_peek)

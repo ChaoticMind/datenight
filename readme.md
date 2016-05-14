@@ -6,7 +6,7 @@ are consuming the same media together over the internet.
 
 #### Client dependencies ####
   - SocketIO-client ([pypi](https://pypi.python.org/pypi/socketIO-client) - [github](https://github.com/invisibleroads/socketIO-client))
-  - On Linux: playerctl ([AUR](https://aur.archlinux.org/packages/playerctl/) - [github](https://github.com/acrisci/playerctl))
+  - On Linux: playerctl ([AUR](https://aur.archlinux.org/packages/playerctl/) - [github](https://github.com/acrisci/playerctl)) and python-gobject
 
 
 #### Server dependencies ####
@@ -17,7 +17,9 @@ are consuming the same media together over the internet.
   - client for linux
   - client for osx
   - publisher: on connect, send nick, user-agent
-  - add web client commands: /pause, /resume, /seek
+  - publisher: send metadata on change
+  - resume in 3...2...1
+  - use gbulb
   - use Gooey
   - migrate client to twisted/autobahn/sockjs
   - save publishers as objects on datenight.js + only send relevant data from server

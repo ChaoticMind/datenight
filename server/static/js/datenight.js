@@ -3,9 +3,13 @@
 "use strict";
 window.onload = initialize;
 
+
 var nick = null;
+var current_state = null;
+
 
 function initialize() {
+  update_state("Paused");
   websock();
 
   document.body.onkeydown = function(event) {
@@ -48,6 +52,26 @@ function update_nick(old_nick, new_nick) {
 }
 
 
+function update_state(new_state) {
+  let btn_text = "Unknown state!";
+  if (new_state == "Paused") {
+    console.log("now Paused");
+    btn_text = "Resume";
+  } else if (new_state == "Playing") {
+    console.log("now playing");
+    btn_text = "Pause";
+  } else {
+    console.log("Invalid state received");
+  }
+  current_state = new_state;
+
+  document.getElementById("current-state-btn").innerHTML = btn_text;
+
+  // Can I make this into some sort of event listener tied to current_state?
+  document.getElementById("current-state-text").innerHTML = current_state;
+}
+
+
 function websock() {
   const namespace = '/subscribe';
   const protocol = window.location.protocol;
@@ -73,6 +97,10 @@ function websock() {
 
     if (msg.fatal) {
       socket.close();
+    }
+
+    if (msg.state) {  // happens after a state is toggled
+      update_state(msg.state);
     }
   });
 
@@ -121,6 +149,9 @@ function websock() {
       add_to_log('Received complete publisher list.');
     }
 
+    if (msg.state) {  // happens on initial connnection
+      update_state(msg.state);
+    }
     let publishers_element = document.getElementById("publishers_info");
     publishers_element.innerHTML = 'Connected publishers: ' + html_items;
   });
@@ -143,6 +174,15 @@ function websock() {
       socket.emit("pause", null, function(msg) {
         document.getElementById("broadcast-data").value = "";
       });
+    } else if (content.startsWith('/resume')) {
+      socket.emit("resume", null, function(msg) {
+        document.getElementById("broadcast-data").value = "";
+      });
+    } else if (content.startsWith('/seek ')) {
+      const seek_dst = content.substring("/seek ".length);
+      socket.emit("seek", {"seek": seek_dst}, function(msg) {
+        document.getElementById("broadcast-data").value = "";
+      });
     } else {
       socket.emit('broadcast message', {data: content}, function(msg) {
         add_to_log('You: ' + msg);
@@ -150,6 +190,17 @@ function websock() {
       });
     }
     return false;
+  };
+
+  document.getElementById("current-state-btn").onclick = function() {
+    if (current_state == "Paused") {
+      socket.emit('resume', null);
+    } else if (current_state == "Playing") {
+      socket.emit('pause', null);
+    } else {
+      console.log("Unknown state, no action taken...");
+      return;
+    }
   };
 }
 

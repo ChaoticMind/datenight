@@ -44,6 +44,14 @@ function websock() {
     add_to_log("Pause requested");
   });
 
+  socket.on('resume', function(msg) {
+    add_to_log("Resume requested");
+  });
+
+  socket.on('seek', function(msg) {
+    add_to_log("Seek requested to " + msg.seek);
+  });
+
   socket.on('latency_ping', function(msg) {
     socket.emit('latency_pong', {'token': msg.token});
   });

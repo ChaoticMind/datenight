@@ -8,8 +8,13 @@ app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app)
 log = logging.getLogger(__name__)
 
+# globals
 subscribers = {}
 publishers = {}
+
+(PLAYING, PAUSED) = (0, 1)
+STATE_NAMES = ['Playing', 'Paused']
+current_state = PAUSED
 
 subscribers_nick_presets = [
 	"macaw", "rhino", "addax", "gharial", "vaquita", "bonobo", "dhole", "panda",

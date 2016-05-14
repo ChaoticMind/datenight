@@ -5,6 +5,7 @@ from flask import request
 from flask.ext.socketio import emit
 
 from server import socketio, publishers, subscribers, subscribers_nick_presets
+from server import current_state, STATE_NAMES, PLAYING, PAUSED
 from server.helpers import clean_publishers
 
 log = logging.getLogger(__name__)
@@ -36,22 +37,56 @@ def connect_subscriber():
 	emit('nick change', {'new': x, 'old': None, 'complete': list(other_subscriber_nicks)}, broadcast=False)
 	emit('update subscriptions', {'complete': list(other_subscriber_nicks), 'new': x, 'old': None}, broadcast=True, include_self=False)
 
-	emit('update publishers', {'data': clean_publishers()})
+	emit('update publishers', {'data': clean_publishers(), 'state': STATE_NAMES[current_state]})
 	return True
 
 
 @socketio.on("help", namespace='/subscribe')
 def display_help(_):
 	log.info("help requested")
-	emit("log message", {"data": 'Commands are: "/help" "/nick &lt;nick&gt;", "/pause"'})
+	emit("log message", {"data": 'Commands are: "/help" "/nick <new_nick>", "/pause", "/resume", "/seek <int>"'})
 
 
 @socketio.on("pause", namespace='/subscribe')
 def request_pause(_):
 	log.info("pause requested by {}".format(request.sid))
 	requester_nick = subscribers[request.sid]['nick']
-	emit("log message", {"data": 'Pause requested by "{}"'.format(requester_nick)}, namespace="/subscribe", broadcast=True, include_self=True)
+	global current_state
+	current_state = PAUSED
+	emit(
+		"log message", {
+			"data": 'Pause requested by "{}"'.format(requester_nick),
+			"state": STATE_NAMES[current_state]
+		}, namespace="/subscribe", broadcast=True, include_self=True)
 	emit("pause", namespace="/publish", broadcast=True)
+
+
+@socketio.on("resume", namespace='/subscribe')
+def request_resume(_):
+	log.info("resume requested by {}".format(request.sid))
+	requester_nick = subscribers[request.sid]['nick']
+	global current_state
+	current_state = PLAYING
+	emit(
+		"log message", {
+			"data": 'Resume requested by "{}"'.format(requester_nick),
+			"state": STATE_NAMES[current_state]
+		}, namespace="/subscribe", broadcast=True, include_self=True)
+	emit("resume", namespace="/publish", broadcast=True)
+
+
+@socketio.on("seek", namespace='/subscribe')
+def request_seek(dst):
+	log.info("seek requested to {} by {}".format(dst, request.sid))
+	requester_nick = subscribers[request.sid]['nick']
+	try:
+		seek_dst = int(dst['seek'])
+	except (KeyError, ValueError):
+		emit("log message", {"data": 'Invalid seek requested ({}). Must be in seconds.'.format(dst['seek'])}, namespace="/subscribe")
+		return
+	else:
+		emit("log message", {"data": 'Seek requested to {} by "{}"'.format(seek_dst, requester_nick)}, namespace="/subscribe", broadcast=True, include_self=True)
+		emit("seek", {"seek": seek_dst}, namespace="/publish", broadcast=True)
 
 
 @socketio.on("change nick", namespace='/subscribe')

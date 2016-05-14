@@ -6,27 +6,35 @@ log = logging.getLogger(__name__)
 
 class VLCClient():
 	def __init__(self, player):
-		self.player = player
+		self._player = player
 
-		self.player.on('play', self._on_play)
-		self.player.on('pause', self._on_pause)
-		self.player.on('stop', self._on_stop)
-		self.player.on('metadata', self._on_metadata)
+		self._player.on('play', self._on_play)
+		self._player.on('pause', self._on_pause)
+		self._player.on('stop', self._on_stop)
+		self._player.on('metadata', self._on_metadata)
 
 		# start playing some music
-		# self.player.play_pause()
-		# print(self.player.__dict__)
+		# self._player.play_pause()
+		# print(self._player.__dict__)
 		# time.sleep(0.2)
-		# self.player.play()
+		# self._player.play()
 		log.info("Initialized player")
 
-		if self.player.get_artist() == 'Lana Del Rey':
+		if self._player.get_artist() == 'Lana Del Rey':
 			# I meant some good music!
-			self.player.next()
+			self._player.next()
 
 	def pause(self):
 		log.info("Pausing")
-		self.player.pause()
+		self._player.pause()
+
+	def resume(self):
+		log.info("Resuming")
+		self._player.play()
+
+	def seek(self, seek_dst):
+		log.info("Seeking to {}".format(seek_dst))
+		self._player.set_position(seek_dst * 1000000)
 
 	def _on_metadata(self, player, e):
 		if 'xesam:artist' in e.keys() and 'xesam:title' in e.keys():
@@ -43,4 +51,4 @@ class VLCClient():
 	def _on_stop(self, player):
 		time.sleep(0.2)
 		player.play()
-		player.seek(50)
+		player.seek(150)
