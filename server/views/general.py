@@ -12,9 +12,9 @@ def index():
 	return render_template('index.html')
 
 
-@app.route('/control')
-def control():
-	return render_template('control.html')
+@app.route('/client')
+def client():
+	return render_template('client.html')
 
 
 @socketio.on_error_default

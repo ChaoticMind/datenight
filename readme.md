@@ -14,12 +14,11 @@ are consuming the same media together over the internet.
 
 
 #### TODO ####
-  - client for linux
+  - client for linux (alternative with subprocesses)
   - client for osx
   - publisher: on connect, send nick, user-agent
-  - publisher: send state and metadata on change
-  - resume countdown (in 3..2..1)
   - use Gooey
+  - resume countdown (in 3..2..1)
   - migrate client to twisted/autobahn/sockjs
   - save publishers as objects on datenight.js + only send relevant data from server
   - support multiple rooms

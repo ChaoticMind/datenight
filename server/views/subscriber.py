@@ -119,6 +119,7 @@ def update_nick(msg):
 
 @socketio.on('broadcast message', namespace='/subscribe')
 def broadcast_message(message):
+	"""A chat message to other subscribers"""
 	log.info("Subscriber broadcasting: {}".format(message))
 	nick = subscribers[request.sid]['nick']
 	try:

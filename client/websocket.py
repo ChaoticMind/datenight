@@ -1,9 +1,6 @@
 import logging
-import asyncio
 
 from socketIO_client import BaseNamespace
-
-from client.socketio_patched import SocketIOPatched
 
 log = logging.getLogger(__name__)
 
@@ -31,12 +28,13 @@ class PublishNamespace(BaseNamespace):
 			self.client.seek(seek_dst)
 
 	def on_log_message(self, msg):
+		"""Server asked us to inform the user of a msg"""
 		try:
 			nick = msg['nick']
 		except KeyError:
-			log.info("{}".format(msg['data']))
+			log.info("remote message: {}".format(msg['data']))
 		else:
-			log.info("{}: {}".format(nick, msg['data']))
+			log.info("remote message: {}: {}".format(nick, msg['data']))
 
 		try:
 			if (msg['fatal']):
@@ -52,24 +50,15 @@ class PublishNamespace(BaseNamespace):
 		self._io.wait(*args, **kwargs)
 
 	def regular_peek(self, loop):
+		"""Unfortunately, we couldn't use nonblocking sockets in a sane way.
+		Socketio-client doesn't seem to provide it.
+
+		We're regularily blocking for small periods of time instead.
+		We can modify these values to find a good balance between responsiveness and CPU usage
+
+		"""
 		# log.debug("Peeking")
 		self.wait(seconds=0.025)
 		# log.debug("Peeked")
 		loop.call_later(0.01, self.regular_peek, loop)
 		return True
-
-
-class DatenightWS():
-	"""This class is now superflous, remove it"""
-	def __init__(self, client):
-		logging.getLogger('').setLevel(logging.DEBUG)
-
-		socket_io = SocketIOPatched('localhost', port=5000)
-		log.info("Connected...")
-		publish = socket_io.define(PublishNamespace, '/publish')
-		publish.client = client
-		client.sock = publish
-		log.info("Connected to /publish")
-
-		loop = asyncio.get_event_loop()
-		loop.call_soon(publish.regular_peek, loop)

@@ -14,8 +14,8 @@ log = logging.getLogger(__name__)
 
 
 class Publisher():
-	ping_delay = 5
-	timeout_threshold = 12
+	PING_DELAY = 5
+	TIMEOUT_THRESHOLD = 12
 
 	def __init__(self, sid, nick):
 		self.__sid = sid
@@ -23,22 +23,23 @@ class Publisher():
 		self.latency = -1
 		self.status = 'stopped'
 		self.position = -1
+		self.title = ""
 		self.__ping_token = None
 		self.__ping_ts = None
 		self.__heartbeat = eventlet.greenthread.spawn_n(self.__ping)
-		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__process_timeout)
+		self.__timeout = eventlet.greenthread.spawn_after(self.TIMEOUT_THRESHOLD, self.__process_timeout)
 
 	def __ping(self):
 		log.debug("{}: ping request".format(self.__sid))
 		self.__ping_token = random.randint(1, 10000000)
 		self.__ping_ts = time.time()
 		socketio.emit('latency_ping', {"token": self.__ping_token}, namespace='/publish', room=self.__sid)
-		self.__heartbeat = eventlet.greenthread.spawn_after(self.ping_delay, self.__ping)
+		self.__heartbeat = eventlet.greenthread.spawn_after(self.PING_DELAY, self.__ping)
 
 	def __process_timeout(self):
-		log.info("{}: no ping reply in {} seconds, setting latency to -1".format(self.__sid, self.timeout_threshold))
+		log.info("{}: no ping reply in {} seconds, setting latency to -1".format(self.__sid, self.TIMEOUT_THRESHOLD))
 		self.latency = -1
-		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__process_timeout)
+		self.__timeout = eventlet.greenthread.spawn_after(self.TIMEOUT_THRESHOLD, self.__process_timeout)
 		socketio.emit('update publishers', {'data': clean_publishers(), 'update': self.nick, 'show': False}, namespace='/subscribe', broadcast=True)
 
 	def pong(self, token):
@@ -51,11 +52,11 @@ class Publisher():
 
 		# reset timeout
 		self.__timeout.cancel()
-		self.__timeout = eventlet.greenthread.spawn_after(self.timeout_threshold, self.__process_timeout)
+		self.__timeout = eventlet.greenthread.spawn_after(self.TIMEOUT_THRESHOLD, self.__process_timeout)
 
 	def dict_repr(self):
 		"""Don't expose private data, this is sent over the wire"""
-		return {'status': self.status, 'position': self.position, 'latency': self.latency}
+		return {'status': self.status, 'position': self.position, 'latency': self.latency, "title": self.title}
 
 	def remove_timeouts(self):
 		log.info("Removing timers from {}".format(self.__sid))
@@ -90,7 +91,7 @@ def connect_publisher():
 		emit("log message", {"data": "Failed to assign you a nick", "fatal": True})
 		return
 
-	log.info("A publisher just connected (id={}, nick={}) - total publishers: {}) connected to control".format(request.sid, x, len(publishers)))
+	log.info("A publisher just connected (id={}, nick={}) - total publishers: {})".format(request.sid, x, len(publishers)))
 	emit('update publishers', {'data': clean_publishers(), 'new': x, 'old': None}, namespace='/subscribe', broadcast=True)
 	return True
 
@@ -100,9 +101,18 @@ def message_trigger(message):
 	log.info("Publisher state updated: {}".format(message))
 	nick = publishers[request.sid].nick
 	# TODO: accept partial updates
-	publishers[request.sid].status = message['status']
-	publishers[request.sid].position = message['position']
-	emit('update publishers', {'data': clean_publishers(), 'update': nick, 'show': True}, namespace='/subscribe', broadcast=True)
+	try:
+		publishers[request.sid].status = message['status']
+		publishers[request.sid].title = message['title']
+		publishers[request.sid].position = message['position']
+		show = message.get('show', False)
+	except KeyError as e:
+		msg = "Received missing data: {}".format(e)
+		log.error(msg)
+		emit('log message', {'data': msg}, namespace='/publish', broadcast=False)
+		return False
+	else:
+		emit('update publishers', {'data': clean_publishers(), 'update': nick, 'show': show}, namespace='/subscribe', broadcast=True)
 
 
 @socketio.on('latency_pong', namespace='/publish')
@@ -111,13 +121,6 @@ def ping(message):
 		publishers[request.sid].pong(message['token'])
 	except KeyError:
 		emit("log message", {"data": "Received bad pong", "fatal": True})
-
-
-# @socketio.on('publisher_debug', namespace='/publish')
-# def player_debug(message):
-# 	log.info("Publisher broadcasting: {}".format(message))
-# 	emit('log message', {'data': message['data']}, namespace='/subscribe', broadcast=True)
-# 	emit('log message', {'data': message['data']}, broadcast=True)
 
 
 @socketio.on('disconnect request', namespace='/publish')
