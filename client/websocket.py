@@ -1,6 +1,6 @@
 import logging
+import asyncio
 
-from gi.repository import GLib
 from socketIO_client import BaseNamespace
 
 from client.socketio_patched import SocketIOPatched
@@ -51,12 +51,11 @@ class PublishNamespace(BaseNamespace):
 	def wait(self, *args, **kwargs):
 		self._io.wait(*args, **kwargs)
 
-	def regular_peek(self):
-		# log.info("Peeking")
+	def regular_peek(self, loop):
+		# log.debug("Peeking")
 		self.wait(seconds=0.025)
-		# log.info("Peeked")
-		# GLib.idle_add(self.regular_peek)
-		# GLib.timeout_add(500, self.regular_peek)
+		# log.debug("Peeked")
+		loop.call_later(0.01, self.regular_peek, loop)
 		return True
 
 
@@ -65,12 +64,12 @@ class DatenightWS():
 	def __init__(self, client):
 		logging.getLogger('').setLevel(logging.DEBUG)
 
-		socket_io = SocketIOPatched('localhost', 5000)
+		socket_io = SocketIOPatched('localhost', port=5000)
 		log.info("Connected...")
 		publish = socket_io.define(PublishNamespace, '/publish')
 		publish.client = client
 		client.sock = publish
 		log.info("Connected to /publish")
-		# socket_io.wait(seconds=0)
-		# GLib.idle_add(publish.regular_peek)
-		GLib.timeout_add(10, publish.regular_peek)
+
+		loop = asyncio.get_event_loop()
+		loop.call_soon(publish.regular_peek, loop)

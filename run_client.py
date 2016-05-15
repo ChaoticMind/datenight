@@ -4,7 +4,10 @@ import argparse
 
 import gi
 gi.require_version('Playerctl', '1.0')  # noqa
-from gi.repository import Playerctl, GLib
+from gi.repository import Playerctl
+import asyncio
+import gbulb
+gbulb.install()  # noqa
 
 from client.vlc import VLCClient
 from client.websocket import DatenightWS
@@ -41,8 +44,7 @@ def main():
 	client = VLCClient(vlc_player)
 	DatenightWS(client)
 
-	main = GLib.MainLoop()
-	main.run()
+	asyncio.get_event_loop().run_forever()
 
 
 if __name__ == '__main__':
