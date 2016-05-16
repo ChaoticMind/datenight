@@ -170,11 +170,11 @@ function websock() {
       socket.emit("change nick", {new: new_nick}, function(msg) {
         document.getElementById("broadcast-data").value = "";
       });
-    } else if (content.startsWith('/pause')) {
+    } else if (content.startsWith('/pause') || content.startsWith('/stop')) {
       socket.emit("pause", null, function(msg) {
         document.getElementById("broadcast-data").value = "";
       });
-    } else if (content.startsWith('/resume')) {
+    } else if (content.startsWith('/resume') || content.startsWith('/play')) {
       socket.emit("resume", null, function(msg) {
         document.getElementById("broadcast-data").value = "";
       });

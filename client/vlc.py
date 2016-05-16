@@ -1,16 +1,21 @@
 import logging
 import os
 import urllib.request
+import asyncio
+# from functools import partial
 
 import gi
 gi.require_version('Playerctl', '1.0')  # noqa
-from gi.repository import Playerctl
+from gi.repository import GLib, Playerctl
 
 log = logging.getLogger(__name__)
 
 
-class VLCClient():
-	def __init__(self, sock, loop):
+class IntrospectiveVLCClient():
+	"""Uses GLib introspection library (see playerctl documentation)"""
+	REPORT_PERIOD = 1
+
+	def __init__(self, sock):
 		self._sock = sock
 
 		self._state = "Paused"
@@ -20,10 +25,13 @@ class VLCClient():
 
 		self.__initialize_player()
 
-		log.info("Initialized player")
+		log.info("Initialized {} player".format(self.__class__.__name__))
+		loop = asyncio.get_event_loop()
+		self.handle = loop.call_soon(self._report_and_reschedule)  # not necessary since _on_stop/_on_play/_on_pause are called next, but just in case.
+
 		initial_metadata = self._player.get_property("metadata")
 		if initial_metadata:
-			self._on_metadata(self._player, initial_metadata)  # set metadata
+			self._on_metadata(self._player, initial_metadata, dontsend=True)  # set metadata
 
 		if self._title:
 			log.info("Player is running with {}".format(self._title))
@@ -35,7 +43,6 @@ class VLCClient():
 				log.error("Player in unknown state")
 		else:
 			self._on_stop(self._player)  # set state etc
-		loop.call_later(1, self._periodic_report_position, loop)
 
 	def __initialize_player(self):
 		self._player = Playerctl.Player(player_name='vlc')
@@ -56,49 +63,65 @@ class VLCClient():
 
 	def seek(self, seek_dst):
 		log.info("Received request to seek to {}".format(seek_dst))
-		self._player.set_position(seek_dst * 1000000)
+		try:
+			self._player.set_position(seek_dst * 1000000)
+		except GLib.GError:
+			log.error("Can't seek current file (if any)")
+		except OverflowError:
+			log.warning("seek destination too large, ignoring...")
+		else:
+			self._report_and_reschedule(show=False)  # no on_properties_changed in the lib (yet)
 
 	# events occurred
-	def _on_metadata(self, player, e):
+	def _on_metadata(self, player, e, dontsend=False):
 		log.debug("New metadata: {}".format(e))
 		# set title
 		if 'xesam:artist' in e.keys() and 'xesam:title' in e.keys():  # music
 			log.info('Now playing track: {artist} - {title}'.format(
 				artist=e['xesam:artist'][0], title=e['xesam:title']))
-			self._title = player.get_title()
+			title = player.get_title()
 		elif 'xesam:title' in e.keys():  # vid with metadata
-			self._title = player.get_title()
-			log.info('Now playing file: {}'.format(self._title))
+			title = player.get_title()
+			log.info('Now playing file: {}'.format(title))
 		elif 'xesam:url' in e.keys():  # arbitrary file
 			fname = os.path.basename(e['xesam:url'])
-			self._title = urllib.request.unquote(fname)
-			log.info('Now playing file: {}'.format(self._title))
+			title = urllib.request.unquote(fname)
+			log.info('Now playing file: {}'.format(title))
 		else:
-			if self._player.get_property("status") == "Stopped":
-				self._title = ""
+			if player.get_property("status") == "Stopped":
+				title = ""
 				# self._on_stop(player)
 			else:
-				self._title = "?"
+				title = "?"
 				log.info('Now playing unknown file')
 
 		# get length
 		if 'mpris:length' in e.keys():
-			self._length = int(e['mpris:length']) // 1000000
+			length = int(e['mpris:length']) // 1000000
+		else:
+			length = -1
+
+		if (title != self._title) or (length and (length != self._length)):
+			self._title = title
+			if length:
+				self._length = length
+			if not dontsend:
+				self._report_and_reschedule(show=False)  # too spammy on file change if show
 
 	def _on_play(self, player):
 		log.info("Playing: {}".format(self._title))
 		self._state = "Playing"
-		self._report_position(show=True)
+		self._report_and_reschedule(show=True)
 
 	def _on_pause(self, player):
 		log.info("Paused: {}".format(self._title))
 		self._state = "Paused"
-		self._report_position(show=True)
+		self._report_and_reschedule(show=True)
 
 	def _on_stop(self, player):
 		log.info("Player is stopped...")
 		self._state = "Stopped"
-		self._report_position(show=True)
+		self._report_and_reschedule(show=True)
 
 	def _on_exit(self, player):
 		self._title = ""
@@ -106,16 +129,122 @@ class VLCClient():
 		return self._on_stop(player)
 
 	# periodic report
-	def _report_position(self, show=False):
-		"""show is a recommendation to explicitely log on the subscriber side"""
+	def _report_and_reschedule(self, show=False):
+		""":param show: A recommendation whether explicitely log on the subscriber side"""
+		self.handle.cancel()
+
 		self.__initialize_player()
 		self._position = self._player.get_property("position") // 1000000
+		log.debug("Reporting state")
 		self._sock.emit("update state", {
 			"title": self._title,
 			"status": self._state,
 			"position": "{}/{}".format(self._position, self._length),
 			"show": show})
 
-	def _periodic_report_position(self, loop):
-		self._report_position()
-		loop.call_later(1, self._periodic_report_position, loop)
+		loop = asyncio.get_event_loop()
+		self.handle = loop.call_later(self.REPORT_PERIOD, self._report_and_reschedule)
+
+
+class ForkingVLCClient():
+	"""VLC client which forks another process to get and set properties"""
+	POLL_PERIOD = 0.9
+
+	def __init__(self, sock, cmd_params):
+		self._sock = sock
+		self.cmd_params = cmd_params
+
+		self._state = "Paused"
+		self._title = ""
+		self._position = -1
+		self._length = -1
+
+		log.info("Initialized {} player".format(self.__class__.__name__))
+		loop = asyncio.get_event_loop()
+		self.handle = loop.call_soon(self._periodic_report_metadata)
+
+	# actions requested
+	def pause(self):
+		log.info("Received request to pause")
+		d = asyncio.ensure_future(self._fork_process("pause"))
+
+		def pause_helper(_):
+			return asyncio.ensure_future(self._poll_metadata())
+
+		d.add_done_callback(pause_helper)
+
+	def resume(self):
+		log.info("Received request to resume")
+		d = asyncio.ensure_future(self._fork_process("play"))
+
+		def resume_helper(_):
+			return asyncio.ensure_future(self._poll_metadata())
+
+		d.add_done_callback(resume_helper)
+
+	def seek(self, seek_dst):
+		log.info("Received request to seek to {}".format(seek_dst))
+		d = asyncio.ensure_future(self._fork_process("position", str(seek_dst)))
+
+		def seek_helper(_):
+			d2 = asyncio.ensure_future(self._fetch_position())
+
+			def seek_helper_helper(__):
+				"""Are add_done_callback() not chained?"""
+				self._report_state()
+
+			d2.add_done_callback(seek_helper_helper)
+			return d2
+
+		d.add_done_callback(seek_helper)
+		# d.add_done_callback(self._report_state)  # note: this doesn't work, made seek_helper_helper instead
+
+	# periodic poll/report
+	def _report_state(self, _=None, show=False):
+		""":param show: A recommendation whether explicitely log on the subscriber side"""
+		log.debug("Reporting state")
+		self._sock.emit("update state", {
+			"title": self._title,
+			"status": self._state,
+			"position": "{}/{}".format(self._position, self._length),
+			"show": show})
+
+		self.handle.cancel()
+		loop = asyncio.get_event_loop()
+		self.handle = loop.call_later(self.POLL_PERIOD, self._periodic_report_metadata)
+
+	async def _fork_process(self, *more_params):
+		"""Note that there is no timeout on the subprocesses"""
+		proc = await asyncio.create_subprocess_exec(*self.cmd_params, *more_params, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+		stdout_data, stderr_data = await proc.communicate()
+		await proc.wait()
+		if proc.returncode:
+			return ""
+		else:
+			return stdout_data.strip().decode("utf-8")
+
+	async def _fetch_position(self, _=None):
+		self._position = int(float(await self._fork_process("position")))
+		return self._position
+
+	async def _poll_metadata(self):
+		state = await self._fork_process("status")
+		fname = await self._fork_process("metadata", "xesam:url")
+		title = urllib.request.unquote(os.path.basename(fname))
+		position = await self._fetch_position()
+		try:
+			length = int(await self._fork_process("metadata", "mpris:length")) // 1000000
+		except ValueError:
+			length = -1
+
+		if state != self._state or title != self._title or length != self._length:
+			show = True
+		else:
+			show = False
+
+		self._state, self._title, self._position, self._length = state, title, position, length
+
+		self._report_state(show=show)
+
+	def _periodic_report_metadata(self):
+		asyncio.ensure_future(self._poll_metadata())

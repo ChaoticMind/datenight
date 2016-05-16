@@ -6,7 +6,7 @@ import asyncio
 import gbulb
 gbulb.install()  # noqa
 
-from client.vlc import VLCClient
+from client.vlc import IntrospectiveVLCClient, ForkingVLCClient
 from client.websocket import PublishNamespace
 from client.socketio_patched import SocketIOPatched
 
@@ -37,7 +37,7 @@ def main():
 	logger.addHandler(sh)
 
 	# main loop
-	logging.getLogger('').setLevel(logging.DEBUG)  # socketio debug
+	# logging.getLogger('').setLevel(logging.DEBUG)  # socketio debug
 
 	socket_io = SocketIOPatched('localhost', port=5000)
 	publish = socket_io.define(PublishNamespace, '/publish')
@@ -45,10 +45,12 @@ def main():
 	loop = asyncio.get_event_loop()
 	loop.call_soon(publish.regular_peek, loop)
 
-	loop = asyncio.get_event_loop()
-	client = VLCClient(publish, loop)
+	client = IntrospectiveVLCClient(publish)
+	# client = ForkingVLCClient(publish, ("playerctl", "-p", "vlc"))
 	publish.client = client
 
+	# loop.set_debug(True)
+	# logging.getLogger('asyncio').setLevel(logging.DEBUG)
 	loop.run_forever()
 
 

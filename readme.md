@@ -14,7 +14,6 @@ are consuming the same media together over the internet.
 
 
 #### TODO ####
-  - client for linux (alternative with subprocesses)
   - client for osx
   - publisher: on connect, send nick, user-agent
   - use Gooey
