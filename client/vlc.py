@@ -147,12 +147,16 @@ class IntrospectiveVLCClient():
 
 
 class ForkingVLCClient():
-	"""VLC client which forks another process to get and set properties"""
+	"""VLC client which forks another process to get and set properties
+
+	Don't use this class directly, use one of its implementations instead
+
+	"""
 	POLL_PERIOD = 0.9
 
-	def __init__(self, sock, cmd_params):
+	def __init__(self, sock):
 		self._sock = sock
-		self.cmd_params = cmd_params
+		self._define_commands()
 
 		self._state = "Paused"
 		self._title = ""
@@ -163,10 +167,18 @@ class ForkingVLCClient():
 		loop = asyncio.get_event_loop()
 		self.handle = loop.call_soon(self._periodic_report_metadata)
 
+	def _define_commands(self):
+		"""Subclasses should implement the following variables
+		self._pause_cmd, self._resume_cmd, self._seek_cmd
+		self._position_cmd, self._status_cmd, self._title_cmd, self._length_cmd
+
+		"""
+		raise NotImplementedError("Please use a subclass")
+
 	# actions requested
 	def pause(self):
 		log.info("Received request to pause")
-		d = asyncio.ensure_future(self._fork_process("pause"))
+		d = asyncio.ensure_future(self._fork_process(self._pause_cmd))
 
 		def pause_helper(_):
 			return asyncio.ensure_future(self._poll_metadata())
@@ -175,7 +187,7 @@ class ForkingVLCClient():
 
 	def resume(self):
 		log.info("Received request to resume")
-		d = asyncio.ensure_future(self._fork_process("play"))
+		d = asyncio.ensure_future(self._fork_process(self._resume_cmd))
 
 		def resume_helper(_):
 			return asyncio.ensure_future(self._poll_metadata())
@@ -184,7 +196,7 @@ class ForkingVLCClient():
 
 	def seek(self, seek_dst):
 		log.info("Received request to seek to {}".format(seek_dst))
-		d = asyncio.ensure_future(self._fork_process("position", str(seek_dst)))
+		d = asyncio.ensure_future(self._fork_process(self._seek_cmd.format(seek=seek_dst)))
 
 		def seek_helper(_):
 			d2 = asyncio.ensure_future(self._fetch_position())
@@ -213,9 +225,9 @@ class ForkingVLCClient():
 		loop = asyncio.get_event_loop()
 		self.handle = loop.call_later(self.POLL_PERIOD, self._periodic_report_metadata)
 
-	async def _fork_process(self, *more_params):
+	async def _fork_process(self, cmd):
 		"""Note that there is no timeout on the subprocesses"""
-		proc = await asyncio.create_subprocess_exec(*self.cmd_params, *more_params, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+		proc = await asyncio.create_subprocess_exec(*cmd.split(), stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
 		stdout_data, stderr_data = await proc.communicate()
 		await proc.wait()
 		if proc.returncode:
@@ -224,16 +236,16 @@ class ForkingVLCClient():
 			return stdout_data.strip().decode("utf-8")
 
 	async def _fetch_position(self, _=None):
-		self._position = int(float(await self._fork_process("position")))
+		self._position = int(float(await self._fork_process(self._position_cmd)))
 		return self._position
 
 	async def _poll_metadata(self):
-		state = await self._fork_process("status")
-		fname = await self._fork_process("metadata", "xesam:url")
+		state = await self._fork_process(self._status_cmd)
+		fname = await self._fork_process(self._title_cmd)
 		title = urllib.request.unquote(os.path.basename(fname))
 		position = await self._fetch_position()
 		try:
-			length = int(await self._fork_process("metadata", "mpris:length")) // 1000000
+			length = int(await self._fork_process(self._length_cmd)) // 1000000
 		except ValueError:
 			length = -1
 
@@ -248,3 +260,19 @@ class ForkingVLCClient():
 
 	def _periodic_report_metadata(self):
 		asyncio.ensure_future(self._poll_metadata())
+
+
+class ForkingPlayerctlClient(ForkingVLCClient):
+	def _define_commands(self):
+		self._pause_cmd = "playerctl -p vlc pause"
+		self._resume_cmd = "playerctl -p vlc play"
+		self._seek_cmd = "playerctl -p vlc position {seek}"
+
+		self._position_cmd = "playerctl -p vlc position"
+		self._status_cmd = "playerctl -p vlc status"
+		self._title_cmd = "playerctl -p vlc metadata xesam:url"
+		self._length_cmd = "playerctl -p vlc metadata mpris:length"
+
+
+class ForkingOSXClient(ForkingVLCClient):
+	pass

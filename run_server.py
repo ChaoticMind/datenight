@@ -4,6 +4,9 @@ import argparse
 
 from server import app, socketio
 
+log = logging.getLogger(__name__)
+__version__ = (0, 0, 1)
+
 
 def main():
 	# argparse setup
@@ -11,6 +14,10 @@ def main():
 
 	# optional arguments
 	parser.add_argument('-v', action='count', help="verbosity increases with each 'v' | critical/error/warning/info/debug", default=0)
+	parser.add_argument('-a', '--all-interfaces', action="store_true", help="Listen on 0.0.0.0? (otherwise 127.0.0.1)")
+	parser.add_argument('-p', '--port', default=5500, type=int, help="port to listen on")
+	parser.add_argument('-d', '--debug', action="store_true", help="run in debug mode (Warning: don't run this with -a)")
+	parser.add_argument('-V', '--version', action='version', version="%(prog)s v{}".format('.'.join(map(str, __version__))), help="Show version and exit")
 
 	args = parser.parse_args()
 
@@ -29,8 +36,8 @@ def main():
 	logger.addHandler(sh)
 
 	# run flask
-	socketio.run(app, debug=True)
-	# socketio.run(app, host='0.0.0.0', port=5500, debug=False)
+	host = "0.0.0.0" if args.all_interfaces else "127.0.0.1"
+	socketio.run(app, host=host, port=args.port, debug=args.debug)
 
 
 if __name__ == '__main__':
