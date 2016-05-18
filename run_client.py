@@ -7,12 +7,11 @@ import sys
 import gbulb
 gbulb.install()  # noqa
 
-from client.vlc import IntrospectiveVLCClient, ForkingPlayerctlClient, ForkingOSXClient
+from client.vlc import IntrospectiveVLCClient, ForkingPlayerctlClient, ForkingOSXClient, _version
 from client.websocket import PublishNamespace
 from client.socketio_patched import SocketIOPatched
 
 log = logging.getLogger(__name__)
-__version__ = (0, 0, 1)
 
 
 def main():
@@ -46,10 +45,10 @@ def main():
 	# optional arguments
 	parser.add_argument('-v', action='count', help="verbosity increases with each 'v' | critical/error/warning/info/debug", default=0)
 	parser.add_argument('-s', '--server', type=str, default="localhost", help="hostname to connect to")
-	parser.add_argument('-p', '--port', default=80, type=int, help="port to connect to")
+	parser.add_argument('-p', '--port', default=None, type=int, help="port to connect to (if unspecified, defaults to 80 for http:// and 443 for https://)")
 	parser.add_argument('-c', '--client', default=default_client, type=str, choices=clients, help="Select a client to use")
 	parser.add_argument('-a', '--alias', type=str, default=None, help="Name by which this publisher will be known as")
-	parser.add_argument('-V', '--version', action='version', version="%(prog)s v{}".format('.'.join(map(str, __version__))), help="Show version and exit")
+	parser.add_argument('-V', '--version', action='version', version="%(prog)s v{}".format('.'.join(map(str, _version))), help="Show version and exit")
 	# --no-gui?
 
 	args = parser.parse_args()
@@ -74,15 +73,21 @@ def main():
 
 	# main loop
 	# logging.getLogger('').setLevel(logging.DEBUG)  # socketio debug
-
+	if args.port is None:
+		if args.server.startswith("https"):
+			args.port = 443
+		elif args.server.startswith("http"):
+			args.port = 80
 	socket_io = SocketIOPatched(host=args.server, port=args.port)
 	publish = socket_io.define(PublishNamespace, path='/publish')
+	if args.alias:
+		publish.update_alias(args.alias)
 
 	loop = asyncio.get_event_loop()
 	loop.call_soon(publish.regular_peek, loop)
 
 	client = clients_mapping[args.client](publish)
-	publish.client = client
+	publish.initialize_namespace(client)
 
 	# loop.set_debug(True)
 	# logging.getLogger('asyncio').setLevel(logging.DEBUG)

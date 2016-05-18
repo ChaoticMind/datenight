@@ -90,21 +90,21 @@ def request_seek(dst):
 
 
 @socketio.on("change nick", namespace='/subscribe')
-def update_nick(msg):
-	log.info("nick change requested")
-	log.info(request.event)
+def change_nick(msg):
+	log.info("subscriber nick change requested")
+	# log.info(request.event)
 
-	subscribers_nicks = {z['nick'] for z in subscribers.values()}
 	old_nick = subscribers[request.sid]['nick']
 	try:
 		new_nick = msg['new']
 	except KeyError:
-		emit("log message", {"data": "obey the API!".format(new_nick)})
+		emit("log message", {"data": "obey the API! (missing key 'new')"})
 		return
 	if old_nick == new_nick:
 		emit("log message", {"data": "Your nick is already {}".format(new_nick)})
 		return
 	else:
+		subscribers_nicks = {z['nick'] for z in subscribers.values()}
 		other_nicks = subscribers_nicks.union({z.nick for z in publishers.values()})
 		if new_nick in other_nicks:
 			emit("log message", {"data": "Nick {} already exists".format(new_nick)})

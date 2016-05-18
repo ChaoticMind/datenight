@@ -9,11 +9,13 @@ gi.require_version('Playerctl', '1.0')  # noqa
 from gi.repository import GLib, Playerctl
 
 log = logging.getLogger(__name__)
+_version = (0, 0, 1)  # should be in __init__()
 
 
 class IntrospectiveVLCClient():
 	"""Uses GLib introspection library (see playerctl documentation)"""
 	REPORT_PERIOD = 1
+	ua = "linux_introspective_{}".format('.'.join(map(str, _version)))
 
 	def __init__(self, sock):
 		self._sock = sock
@@ -55,11 +57,17 @@ class IntrospectiveVLCClient():
 	# actions requested
 	def pause(self):
 		log.info("Received request to pause")
-		self._player.pause()
+		try:
+			self._player.pause()
+		except GLib.GError:
+			log.error("Can't play current file (if any)")
 
 	def resume(self):
 		log.info("Received request to resume")
-		self._player.play()
+		try:
+			self._player.play()
+		except GLib.GError:
+			log.error("Can't resume current file (if any)")
 
 	def seek(self, seek_dst):
 		log.info("Received request to seek to {}".format(seek_dst))
@@ -153,6 +161,7 @@ class ForkingVLCClient():
 
 	"""
 	POLL_PERIOD = 0.9
+	ua = "forking_{}".format('.'.join(map(str, _version)))
 
 	def __init__(self, sock):
 		self._sock = sock
@@ -263,6 +272,8 @@ class ForkingVLCClient():
 
 
 class ForkingPlayerctlClient(ForkingVLCClient):
+	ua = "playerctl_forking_{}".format('.'.join(map(str, _version)))
+
 	def _define_commands(self):
 		self._pause_cmd = "playerctl -p vlc pause"
 		self._resume_cmd = "playerctl -p vlc play"
@@ -275,4 +286,4 @@ class ForkingPlayerctlClient(ForkingVLCClient):
 
 
 class ForkingOSXClient(ForkingVLCClient):
-	pass
+	ua = "osx_forking_{}".format('.'.join(map(str, _version)))

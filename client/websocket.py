@@ -6,6 +6,17 @@ log = logging.getLogger(__name__)
 
 
 class PublishNamespace(BaseNamespace):
+	def update_alias(self, new_alias):
+		"""would have been done in on_connect() if it were possible to send alias to __init__"""
+		log.info("Requesting alias update to {}...".format(new_alias))
+		self.emit('set nick', {"new": new_alias})
+
+	def initialize_namespace(self, client):
+		self.client = client
+		log.info("Requesting ua update to {}...".format(client.ua))
+		self.emit('set ua', {"user_agent": client.ua})
+		# self._initialized = True
+
 	def on_latency_ping(self, msg):
 		log.info("Received latency_ping...")
 		self.emit('latency_pong', msg)

@@ -15,8 +15,8 @@ are consuming the same media together over the internet.
 
 #### TODO ####
   - client for osx
-  - publisher: on connect, send nick, user-agent
   - resume countdown (in 3..2..1)
+  - make log div use html (update add_to_log() in util.js)
   - save publishers as objects on datenight.js + only send relevant data from server
   - migrate client to twisted/autobahn/sockjs
   - support multiple rooms

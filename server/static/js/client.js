@@ -19,6 +19,7 @@ function websock() {
 
   socket.on('connect', function() {
     add_to_log("Connected...");
+    socket.emit('set ua', {'user_agent': "web_client_test"});
   });
 
   socket.on('disconnect', function() {

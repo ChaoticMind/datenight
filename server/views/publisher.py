@@ -19,6 +19,7 @@ class Publisher():
 
 	def __init__(self, sid, nick):
 		self.__sid = sid
+		self.ua = "unknown"
 		self.nick = nick
 		self.latency = -1
 		self.status = 'stopped'
@@ -56,7 +57,7 @@ class Publisher():
 
 	def dict_repr(self):
 		"""Don't expose private data, this is sent over the wire"""
-		return {'status': self.status, 'position': self.position, 'latency': self.latency, "title": self.title}
+		return {'status': self.status, 'position': self.position, 'latency': self.latency, "title": self.title, 'ua': self.ua}
 
 	def remove_timeouts(self):
 		log.info("Removing timers from {}".format(self.__sid))
@@ -121,6 +122,49 @@ def ping(message):
 		publishers[request.sid].pong(message['token'])
 	except KeyError:
 		emit("log message", {"data": "Received bad pong", "fatal": True})
+
+
+@socketio.on("set nick", namespace='/publish')
+def update_nick(msg):
+	log.info("publisher nick change requested")
+
+	old_nick = publishers[request.sid].nick
+	try:
+		new_nick = msg['new']
+	except KeyError:
+		emit("log message", {"data": "obey the API! (missing key 'new')"})
+		return
+	if old_nick == new_nick:
+		emit("log message", {"data": "Your nick is already {}".format(new_nick)})
+		return
+	else:
+		subscribers_nicks = {z['nick'] for z in subscribers.values()}
+		other_nicks = subscribers_nicks.union({z.nick for z in publishers.values()})
+		if new_nick in other_nicks:
+			emit("log message", {"data": "Nick {} already exists".format(new_nick)})
+			return
+
+	publishers[request.sid].nick = new_nick
+
+	emit('log message', {'data': "nick updated to {}".format(new_nick)}, broadcast=False)
+	emit('update publishers', {'data': clean_publishers(), 'new': new_nick, 'old': old_nick}, namespace='/subscribe', broadcast=True)
+
+
+@socketio.on("set ua", namespace='/publish')
+def set_ua(msg):
+	log.info("publisher ua change requested")
+
+	try:
+		ua = msg['user_agent']
+	except KeyError:
+		emit("log message", {"data": "obey the API! (missing key 'user_agent')"})
+		return
+
+	publishers[request.sid].ua = ua
+	nick = publishers[request.sid].nick
+
+	emit('log message', {'data': "ua set to {}".format(ua)}, broadcast=False)
+	emit('update publishers', {'data': clean_publishers(), 'update': nick, 'show': False}, namespace='/subscribe', broadcast=True)
 
 
 @socketio.on('disconnect request', namespace='/publish')
