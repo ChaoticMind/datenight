@@ -5,20 +5,20 @@ import asyncio
 import sys
 import subprocess
 
-from client.vlc import IntrospectiveVLCClient, ForkingPlayerctlClient, UnixSocketClient, _version
 from client.websocket import PublishNamespace
 from client.socketio_patched import SocketIOPatched
+from client.vlc.playerctl import ForkingPlayerctlClient
+from client.vlc.unixsocket import UnixSocketClient
 
 log = logging.getLogger(__name__)
+_version = (0, 0, 1)  # TODO: should be accessed from one place
 
 
 def main():
 	if sys.platform == "linux":
 		clients = {
-			"introspective": IntrospectiveVLCClient,
+			"introspective": None,  # assign later because of dependencies
 			"playerctl": ForkingPlayerctlClient,
-			# "socat": ForkingSocatClient,
-			# "netcat": ForkingNetcatClient
 			"unixsocket": UnixSocketClient
 		}
 		default_client = "introspective"
@@ -26,7 +26,6 @@ def main():
 	elif sys.platform == "osx":
 		clients = {
 			"unixsocket": UnixSocketClient
-			# "netcat": ForkingNetcatClient
 		}
 		default_client = "netcat"
 
@@ -60,6 +59,16 @@ def main():
 		print("Must choose a client (-c) from {}".format(clients.keys()))
 		return 1
 	if args.client == "introspective":
+		try:
+			from client.vlc.introspective import IntrospectiveVLCClient
+		except ValueError:
+			print(
+				"You don't have playerctl installed (needed for the introspective client)\n"
+				"Install it or use an alternative client with the -c flag")
+			return 1
+		else:
+			clients['introspective'] = IntrospectiveVLCClient
+
 		try:
 			import gbulb
 		except ImportError:
