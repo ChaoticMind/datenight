@@ -3,9 +3,7 @@ import logging
 import argparse
 import asyncio
 import sys
-
-import gbulb
-gbulb.install()  # noqa  # TODO: Move this
+import subprocess
 
 from client.vlc import IntrospectiveVLCClient, ForkingPlayerctlClient, UnixSocketClient, _version
 from client.websocket import PublishNamespace
@@ -34,11 +32,16 @@ def main():
 
 	elif sys.platform == "windows":
 		print("windows not yet supported")
-		# TODO use other loop
+		loop = asyncio.ProactorEventLoop()  # for subprocesses on windows
+		asyncio.set_event_loop(loop)
 		return 1
 	else:
 		print("Platform {} not supported".format(sys.platform))
 		return 1
+
+	def get_commit_id():
+		# called on every launch, but that's ok for now
+		return subprocess.run(["git", "describe", "--always"], stdout=subprocess.PIPE, timeout=0.5).stdout.decode('utf-8').strip()
 
 	# argparse setup
 	parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, description='datenight client')
@@ -49,14 +52,23 @@ def main():
 	parser.add_argument('-p', '--port', default=None, type=int, help="port to connect to (if unspecified, defaults to 80 for http:// and 443 for https://)")
 	parser.add_argument('-c', '--client', default=default_client, type=str, choices=clients.keys(), help="Select a client to use")
 	parser.add_argument('-a', '--alias', type=str, default=None, help="Name by which this publisher will be known as")
-	parser.add_argument('-V', '--version', action='version', version="%(prog)s v{}".format('.'.join(map(str, _version))), help="Show version and exit")
-	# --no-gui?
+	parser.add_argument('-V', '--version', action='version', version="%(prog)s v{} ({})".format('.'.join(map(str, _version)), get_commit_id()), help="Show version and exit")
 
 	args = parser.parse_args()
 	if args.client not in clients:
 		# fallback if the default_client is invalid
 		print("Must choose a client (-c) from {}".format(clients.keys()))
 		return 1
+	if args.client == "introspective":
+		try:
+			import gbulb
+		except ImportError:
+			print(
+				"You don't have the gbulb module installed (needed for the introspective client)\n"
+				"Install it or use an alternative client with the -c flag")
+			return 1
+		else:
+			gbulb.install()
 
 	# logger setup
 	level = max(10, 50 - (10 * args.v))

@@ -8,7 +8,7 @@ from functools import partial
 import gi
 gi.require_version('Playerctl', '1.0')  # noqa
 from gi.repository import GLib, Playerctl
-
+# TODO delete playerctl and test the imports
 log = logging.getLogger(__name__)
 _version = (0, 0, 1)  # should be in __init__()
 
@@ -192,8 +192,9 @@ class ForkingVLCClient():
 		d = asyncio.ensure_future(self._fork_process(self._pause_cmd))
 
 		def pause_helper(_):
-			# TODO: immediately report instead
-			return asyncio.ensure_future(self._poll_metadata())
+			d2 = asyncio.ensure_future(self._fetch_state())
+			d2.add_done_callback(self._report_state_show)
+			return d2
 
 		d.add_done_callback(pause_helper)
 
@@ -202,8 +203,9 @@ class ForkingVLCClient():
 		d = asyncio.ensure_future(self._fork_process(self._resume_cmd))
 
 		def resume_helper(_):
-			# TODO: immediately report instead
-			return asyncio.ensure_future(self._poll_metadata())
+			d2 = asyncio.ensure_future(self._fetch_state())
+			d2.add_done_callback(self._report_state_show)
+			return d2
 
 		d.add_done_callback(resume_helper)
 
@@ -213,19 +215,15 @@ class ForkingVLCClient():
 
 		def seek_helper(_):
 			d2 = asyncio.ensure_future(self._fetch_position())
-
-			def seek_helper_helper(__):
-				"""Are add_done_callback() not chained?"""
-				self._report_state()
-				# TODO: loop.call_soon() instead of self._report_state()
-
-			d2.add_done_callback(seek_helper_helper)
+			d2.add_done_callback(self._report_state)
 			return d2
 
 		d.add_done_callback(seek_helper)
-		# d.add_done_callback(self._report_state)  # note: this doesn't work, made seek_helper_helper instead
 
 	# periodic poll/report
+	def _report_state_show(self, _):
+		return self._report_state(_, show=True)
+
 	def _report_state(self, _=None, show=False):
 		""":param show: A recommendation whether explicitely log on the subscriber side"""
 		log.debug("Reporting state")
@@ -234,10 +232,6 @@ class ForkingVLCClient():
 			"status": self._state,
 			"position": "{}/{}".format(self._position, self._length),
 			"show": show})
-
-		self.handle.cancel()
-		loop = asyncio.get_event_loop()
-		self.handle = loop.call_later(self.POLL_PERIOD, self._periodic_report_metadata)
 
 	async def _fork_process(self, cmd):
 		"""Note that there is no timeout on the subprocesses"""
@@ -249,12 +243,17 @@ class ForkingVLCClient():
 		else:
 			return stdout_data.strip().decode("utf-8")
 
+	async def _fetch_state(self):
+		self._state = await self._fork_process(self._status_cmd)
+		return self._state
+
 	async def _fetch_position(self, _=None):
 		self._position = int(float(await self._fork_process(self._position_cmd)))
 		return self._position
 
 	async def _poll_metadata(self):
-		state = await self._fork_process(self._status_cmd)
+		self.handle.cancel()
+		state = await self._fetch_state()
 		fname = await self._fork_process(self._title_cmd)
 		title = urllib.request.unquote(os.path.basename(fname))
 		position = await self._fetch_position()
@@ -271,6 +270,9 @@ class ForkingVLCClient():
 		self._state, self._title, self._position, self._length = state, title, position, length
 
 		self._report_state(show=show)
+		loop = asyncio.get_event_loop()
+		log.debug("rescheduling poll for next iteration...")
+		self.handle = loop.call_later(self.POLL_PERIOD, self._periodic_report_metadata)
 
 	def _periodic_report_metadata(self):
 		asyncio.ensure_future(self._poll_metadata())
@@ -476,26 +478,3 @@ class UnixSocketClient():
 
 		loop = asyncio.get_event_loop()
 		self.handler = loop.call_later(self.REPORT_PERIOD, self._periodic_probe)
-
-# class ForkingNetcatClient(ForkingVLCClient):
-# 	"""Note: this uses the openbsd version of netcat"""
-# 	ua = "{}_forking_netcat_{}".format(sys.platform, '.'.join(map(str, _version)))
-
-
-# class ForkingSocatNcClient(ForkingVLCClient):
-# 	ua = "{}_forking_socat_nc_{}".format(sys.platform, '.'.join(map(str, _version)))
-
-# 	def _define_commands(self):
-# 		self._pause_cmd = 'echo -n "pause" | socat UNIX-CONNECT:/tmp/vlc.sock STDIN'
-# 		self._resume_cmd = 'echo -n "pause" | socat UNIX-CONNECT:/tmp/vlc.sock STDIN'
-# 		self._seek_cmd = 'echo -n "seek {seek}" | socat UNIX-CONNECT:/tmp/vlc.sock STDIN'
-
-# 		self._position_cmd = "socat UNIX-CONNECT:/tmp/vlc.sock STDIO"
-
-
-# class ForkingTelnetClient(ForkingVLCClient):
-# 	ua = "{}_forking_telnet_{}".format(sys.platform, '.'.join(map(str, _version)))
-
-
-# class ForkingSocatTelnetClient(ForkingVLCClient):
-# 	ua = "{}_forking_socat_telnet_{}".format(sys.platform, '.'.join(map(str, _version)))

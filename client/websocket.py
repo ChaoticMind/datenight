@@ -18,7 +18,7 @@ class PublishNamespace(BaseNamespace):
 		# self._initialized = True
 
 	def on_latency_ping(self, msg):
-		log.info("Received latency_ping...")
+		log.debug("Received latency_ping...")
 		self.emit('latency_pong', msg)
 
 	def on_pause(self, msg):
