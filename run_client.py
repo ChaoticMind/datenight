@@ -5,9 +5,9 @@ import asyncio
 import sys
 
 import gbulb
-gbulb.install()  # noqa
+gbulb.install()  # noqa  # TODO: Move this
 
-from client.vlc import IntrospectiveVLCClient, ForkingPlayerctlClient, ForkingOSXClient, _version
+from client.vlc import IntrospectiveVLCClient, ForkingPlayerctlClient, UnixSocketClient, _version
 from client.websocket import PublishNamespace
 from client.socketio_patched import SocketIOPatched
 
@@ -16,24 +16,25 @@ log = logging.getLogger(__name__)
 
 def main():
 	if sys.platform == "linux":
-		clients = ["introspective", "forking"]
+		clients = {
+			"introspective": IntrospectiveVLCClient,
+			"playerctl": ForkingPlayerctlClient,
+			# "socat": ForkingSocatClient,
+			# "netcat": ForkingNetcatClient
+			"unixsocket": UnixSocketClient
+		}
 		default_client = "introspective"
 
-		clients_mapping = {
-			"introspective": IntrospectiveVLCClient,
-			"forking": ForkingPlayerctlClient
-		}
-
 	elif sys.platform == "osx":
-		clients = ["forking"]
-		default_client = "forking"
-
-		clients_mapping = {
-			"forking": ForkingOSXClient
+		clients = {
+			"unixsocket": UnixSocketClient
+			# "netcat": ForkingNetcatClient
 		}
+		default_client = "netcat"
 
 	elif sys.platform == "windows":
-		print("Windows not yet supported")
+		print("windows not yet supported")
+		# TODO use other loop
 		return 1
 	else:
 		print("Platform {} not supported".format(sys.platform))
@@ -46,7 +47,7 @@ def main():
 	parser.add_argument('-v', action='count', help="verbosity increases with each 'v' | critical/error/warning/info/debug", default=0)
 	parser.add_argument('-s', '--server', type=str, default="localhost", help="hostname to connect to")
 	parser.add_argument('-p', '--port', default=None, type=int, help="port to connect to (if unspecified, defaults to 80 for http:// and 443 for https://)")
-	parser.add_argument('-c', '--client', default=default_client, type=str, choices=clients, help="Select a client to use")
+	parser.add_argument('-c', '--client', default=default_client, type=str, choices=clients.keys(), help="Select a client to use")
 	parser.add_argument('-a', '--alias', type=str, default=None, help="Name by which this publisher will be known as")
 	parser.add_argument('-V', '--version', action='version', version="%(prog)s v{}".format('.'.join(map(str, _version))), help="Show version and exit")
 	# --no-gui?
@@ -54,7 +55,7 @@ def main():
 	args = parser.parse_args()
 	if args.client not in clients:
 		# fallback if the default_client is invalid
-		print("Must choose a client (-c) from {}".format(clients))
+		print("Must choose a client (-c) from {}".format(clients.keys()))
 		return 1
 
 	# logger setup
@@ -86,7 +87,7 @@ def main():
 	loop = asyncio.get_event_loop()
 	loop.call_soon(publish.regular_peek, loop)
 
-	client = clients_mapping[args.client](publish)
+	client = clients[args.client](publish)
 	publish.initialize_namespace(client)
 
 	# loop.set_debug(True)
