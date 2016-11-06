@@ -5,8 +5,9 @@ import asyncio
 import sys
 import subprocess
 
+from socketIO_client import SocketIO
+
 from client.websocket import PublishNamespace
-from client.socketio_patched import SocketIOPatched
 from client.vlc.playerctl import ForkingPlayerctlClient
 from client.vlc.unixsocket import UnixSocketClient
 
@@ -100,7 +101,7 @@ def main():
 			args.port = 443
 		elif args.server.startswith("http"):
 			args.port = 80
-	socket_io = SocketIOPatched(host=args.server, port=args.port)
+	socket_io = SocketIO(host=args.server, port=args.port)
 	publish = socket_io.define(PublishNamespace, path='/publish')
 	if args.alias:
 		publish.update_alias(args.alias)
