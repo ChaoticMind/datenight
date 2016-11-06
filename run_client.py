@@ -23,11 +23,11 @@ def main():
 		}
 		default_client = "introspective"
 
-	elif sys.platform == "osx":
+	elif sys.platform == "darwin":
 		clients = {
 			"unixsocket": UnixSocketClient
 		}
-		default_client = "netcat"
+		default_client = "unixsocket"
 
 	elif sys.platform == "windows":
 		print("windows not yet supported")
@@ -35,7 +35,7 @@ def main():
 		asyncio.set_event_loop(loop)
 		return 1
 	else:
-		print("Platform {} not supported".format(sys.platform))
+		print("Platform '{}' not supported".format(sys.platform))
 		return 1
 
 	def get_commit_id():
