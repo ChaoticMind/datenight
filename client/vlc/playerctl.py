@@ -8,14 +8,15 @@ _version = (0, 0, 1)  # TODO: should be in __init__()
 
 
 class ForkingPlayerctlClient(ForkingClient):
-	ua = "{}_forking_playerctl_{}".format(sys.platform, '.'.join(map(str, _version)))
+    ua = "{}_forking_playerctl_{}".format(
+        sys.platform, '.'.join(map(str, _version)))
 
-	def _define_commands(self):
-		self._pause_cmd = "playerctl -p vlc pause"
-		self._resume_cmd = "playerctl -p vlc play"
-		self._seek_cmd = "playerctl -p vlc position {seek}"
+    def _define_commands(self):
+        self._pause_cmd = "playerctl -p vlc pause"
+        self._resume_cmd = "playerctl -p vlc play"
+        self._seek_cmd = "playerctl -p vlc position {seek}"
 
-		self._position_cmd = "playerctl -p vlc position"
-		self._status_cmd = "playerctl -p vlc status"
-		self._title_cmd = "playerctl -p vlc metadata xesam:url"
-		self._length_cmd = "playerctl -p vlc metadata mpris:length"
+        self._position_cmd = "playerctl -p vlc position"
+        self._status_cmd = "playerctl -p vlc status"
+        self._title_cmd = "playerctl -p vlc metadata xesam:url"
+        self._length_cmd = "playerctl -p vlc metadata mpris:length"
