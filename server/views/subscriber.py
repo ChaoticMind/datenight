@@ -118,7 +118,7 @@ def change_nick(msg):
         return
     if old_nick == new_nick:
         emit("log message",
-             {"data": "Your nick is already {}".format(new_nick)})
+             {"data": 'Your nick is already "{}"'.format(new_nick)})
         return
     else:
         subscribers_nicks = {z['nick'] for z in subscribers.values()}
