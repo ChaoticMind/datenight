@@ -4,39 +4,55 @@ import random
 from flask import request
 from flask_socketio import emit
 
-from server import socketio, publishers, subscribers, subscribers_nick_presets
+from server import socketio, publishers, subscribers
 from server import current_state, STATE_NAMES, PLAYING, PAUSED
-from server.helpers import clean_publishers
+from server import subscribers_nick_presets, subscribers_color_presets
+from server.helpers import clean_publishers, clean_subscribers
 
 log = logging.getLogger(__name__)
 
 
 class Subscriber:
-    def __init__(self, nick):
+    def __init__(self, nick, color):
         # self.ua = "unknown"
         self.nick = nick
-        # self.color = color
+        self.color = color
+
+    def dict_repr(self):
+        """Don't expose private data, this is sent over the wire"""
+        return {'color': self.color}
 
 
 # subscribe
 @socketio.on('connect', namespace='/subscribe')
 def connect_subscriber():
     log.info("Connecting subscriber {}".format(request.sid))
-    other_subscriber_nicks = {z.nick for z in subscribers.values()}
-    other_nicks = other_subscriber_nicks.union(
+    other_nicks = {z.nick for z in subscribers.values()}.union(
         {z.nick for z in publishers.values()})
 
     if request.sid in subscribers:
         raise RuntimeError(
             "{} (subscriber) Connected twice.".format(request.sid))
-    for i in range(10):
-        # x = str(random.randint(1, 10000))
-        x = random.choice(subscribers_nick_presets)
-        if x not in other_nicks:
-            subscribers[request.sid] = Subscriber(nick=x)
-            other_subscriber_nicks.add(x)
-            other_nicks.add(x)
-            break
+
+    nicks_pool = subscribers_nick_presets
+    for used_nick in other_nicks:
+        try:
+            nicks_pool.remove(used_nick)
+        except ValueError:  # user is using a non-preset nick
+            pass
+
+    colors_pool = subscribers_color_presets
+    for used_color in {z.color for z in subscribers.values()}:
+        try:
+            colors_pool.remove(used_color)
+        except ValueError:  # user is using a non-preset color
+            pass
+
+    if nicks_pool and colors_pool:
+        assigned_nick = random.choice(nicks_pool)
+        assigned_color = random.choice(colors_pool)
+        subscribers[request.sid] = Subscriber(
+            nick=assigned_nick, color=assigned_color)
     else:
         log.info("Couldn't assign a nick, disconnecting the subscriber...")
         emit("log message",
@@ -44,12 +60,13 @@ def connect_subscriber():
         return
 
     log.info("Someone (id={}, nick={}) just subscribed! - total: {}".format(
-        request.sid, x, len(subscribers)))
-    emit('nick change',
-         {'new': x, 'old': None, 'complete': list(other_subscriber_nicks)},
-         broadcast=False)
+        request.sid, assigned_nick, len(subscribers)))
+    emit('nick change', {
+            'new': assigned_nick, 'old': None,
+            "color": assigned_color, 'complete': clean_subscribers(),
+         }, broadcast=False)
     emit('update subscriptions',
-         {'complete': list(other_subscriber_nicks), 'new': x, 'old': None},
+         {'complete': clean_subscribers(), 'new': assigned_nick, 'old': None},
          broadcast=True, include_self=False)
 
     emit('update publishers',
@@ -118,6 +135,7 @@ def change_nick(msg):
     # log.info(request.event)
 
     old_nick = subscribers[request.sid].nick
+    color = subscribers[request.sid].color
     try:
         new_nick = msg['new']
     except KeyError:
@@ -128,8 +146,7 @@ def change_nick(msg):
              {"data": 'Your nick is already "{}"'.format(new_nick)})
         return
     else:
-        subscribers_nicks = {z.nick for z in subscribers.values()}
-        other_nicks = subscribers_nicks.union(
+        other_nicks = {z.nick for z in subscribers.values()}.union(
             {z.nick for z in publishers.values()})
         if new_nick in other_nicks:
             emit("log message",
@@ -137,13 +154,11 @@ def change_nick(msg):
             return
 
     subscribers[request.sid].nick = new_nick
-    subscribers_nicks.remove(old_nick)
-    subscribers_nicks.add(new_nick)
 
-    emit('nick change', {'new': new_nick, 'old': old_nick,
-                         'complete': list(subscribers_nicks)}, broadcast=False)
+    emit('nick change', {'new': new_nick, 'old': old_nick, "color": color,
+                         'complete': clean_subscribers()}, broadcast=False)
     emit("update subscriptions",
-         {'complete': list(subscribers_nicks), 'new': new_nick,
+         {'complete': clean_subscribers(), 'new': new_nick,
           'old': old_nick}, broadcast=True, include_self=False)
 
 
@@ -152,13 +167,14 @@ def broadcast_message(message):
     """A chat message to other subscribers"""
     log.info("Subscriber broadcasting: {}".format(message))
     nick = subscribers[request.sid].nick
+    color = subscribers[request.sid].color
     try:
         content = message['data']
     except KeyError:
         pass
     else:
-        emit('log message', {'data': content, 'nick': nick}, broadcast=True,
-             include_self=False)
+        emit('log message', {'data': content, 'nick': nick, 'color': color},
+             broadcast=True, include_self=False)
         return message['data']
 
 
@@ -173,11 +189,9 @@ def disconnect_subscriber():
             ' assigned - total: {}'.format(
                 request.sid, len(subscribers)))
     else:
-        subscribers_nicks = {z.nick for z in subscribers.values()}
-
         log.info(
             'subscriber {} just disconnected - total: {}'.format(
                 request.sid, len(subscribers)))
         emit('update subscriptions',
-             {'complete': list(subscribers_nicks), 'new': None,
+             {'complete': clean_subscribers(), 'new': None,
               'old': old_nick}, broadcast=True)

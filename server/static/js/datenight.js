@@ -5,6 +5,7 @@ window.onload = initialize;
 
 
 var nick = null;
+var color = null;
 var current_state = null;
 
 
@@ -31,20 +32,29 @@ function initialize() {
 
 function update_subscription_list(text) {
   let subscription_element = document.getElementById("subscribers_info");
-  let content = "Connected subscribers: ";
-  for (let e of text) {  // TODO: add to DOM in a sane way
-    if (e == nick) {
-      content += "<span class='red'>" + e + "</span>, ";
+  subscription_element.innerHTML = "";
+  for (let e in text) {
+    if (subscription_element.innerHTML !== "") {
+      subscription_element.appendChild(document.createTextNode(', '));
     } else {
-      content += "<span>" + e + "</span>, ";
+      subscription_element.appendChild(document.createTextNode("Connected subscribers: "));
     }
+
+    var newElement = document.createElement("span");
+    if (e == nick) {
+      newElement.className = 'own-nick';
+    }
+
+    newElement.style.color = text[e].color;
+    newElement.appendChild(document.createTextNode(e));
+    subscription_element.appendChild(newElement);
   }
-  subscription_element.innerHTML = content;
 }
 
 
-function update_nick(old_nick, new_nick) {
+function update_nick(old_nick, new_nick, new_color) {
   nick = new_nick;
+  color = new_color;
   if (old_nick)
     add_to_log('Your nick has been changed from "' + old_nick + '" to: "' + nick + '"');
   else
@@ -91,9 +101,9 @@ function websock() {
 
   socket.on('log message', function(msg) {
     if (msg.nick)
-      add_to_log(msg.nick + ': ' + msg.data);
+      add_to_log(msg.nick + ': ' + msg.data, msg.color);
     else
-      add_to_log(msg.data);
+      add_to_log(msg.data, msg.color);
 
     if (msg.fatal) {
       socket.close();
@@ -105,7 +115,7 @@ function websock() {
   });
 
   socket.on('nick change', function(msg) {
-    update_nick(msg.old, msg.new);
+    update_nick(msg.old, msg.new, msg.color);
     update_subscription_list(msg.complete);
   });
 
@@ -185,7 +195,7 @@ function websock() {
       });
     } else {
       socket.emit('broadcast message', {data: content}, function(msg) {
-        add_to_log('You: ' + msg);
+        add_to_log('You: ' + msg, color);
         document.getElementById("broadcast-data").value = "";
       });
     }

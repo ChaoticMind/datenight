@@ -22,4 +22,11 @@ subscribers_nick_presets = [
     "dugong", "yak", "takin", "dingo", "gaur",
 ]
 
+subscribers_color_presets = [  # valid css colors
+    "tomato", "tan", "springgreen", "skyblue", "slateblue", "sienna", "salmon",
+    "palevioletred", "orangered", "mediumseagreen", "magenta",
+    "lightseagreen", "firebrick", "blueviolet", "teal",
+    "green",
+]
+
 from server.views import general, publisher, subscriber  # noqa
