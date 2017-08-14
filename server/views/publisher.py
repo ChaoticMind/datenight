@@ -89,7 +89,7 @@ def connect_publisher():
     log.info("Connecting publisher {}".format(request.sid))
     other_publisher_nicks = {z.nick for z in publishers.values()}
     other_nicks = other_publisher_nicks.union(
-        {z['nick'] for z in subscribers.values()})
+        {z.nick for z in subscribers.values()})
 
     if request.sid in publishers:
         raise RuntimeError(
@@ -161,7 +161,7 @@ def update_nick(msg):
              {"data": "Your nick is already {}".format(new_nick)})
         return
     else:
-        subscribers_nicks = {z['nick'] for z in subscribers.values()}
+        subscribers_nicks = {z.nick for z in subscribers.values()}
         other_nicks = subscribers_nicks.union(
             {z.nick for z in publishers.values()})
         if new_nick in other_nicks:
