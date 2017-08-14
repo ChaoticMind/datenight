@@ -9,14 +9,14 @@ log = logging.getLogger(__name__)
 _version = (0, 0, 1)  # TODO: should be in __init__()
 
 
-class UnixSocketClient():
+class UnixSocketClient:
     """Currently specific to vlc, but can be generalized similar to
     ForkingClient """
     REPORT_PERIOD = 1
     ua = "{}_unixsocket_{}".format(sys.platform, '.'.join(map(str, _version)))
 
     class UnixProtocol(asyncio.Protocol):
-        def __init__(self, client, *args, **kwargs):
+        def __init__(self, client: 'UnixSocketClient', *args, **kwargs):
             self._client = client
 
             self._pause_strings = ["status change: ( pause state: 3 ): Pause"]
@@ -110,7 +110,8 @@ class UnixSocketClient():
             if len(lines) == 3:
                 position, title, length = lines
                 try:
-                    position, length = int(position), int(length)
+                    position = int(position)
+                    length = int(length)
                 except ValueError:
                     return
                 else:
@@ -126,13 +127,17 @@ class UnixSocketClient():
                 self.emit_to_sock(show)
 
         def emit_to_sock(self, show):
-            # could reset the periodic probe here, but it's not really necessary
+            # could reset the periodic probe here, but it's not really required
             # introspective client behavior is to reset it atm
             log.debug("Reporting state")
+            if self._length:
+                adjusted_position = self._position - self._client.offset
+            else:
+                adjusted_position = self._position
             self._client.websock.emit("update state", {
                 "title": self._title,
                 "status": self._state_str[self._state],
-                "position": "{}/{}".format(self._position, self._length),
+                "position": "{}/{}".format(adjusted_position, self._length),
                 "show": show})
 
         def connection_lost(self, e):
@@ -141,11 +146,12 @@ class UnixSocketClient():
             self._client.handler.cancel()
             asyncio.ensure_future(self._client.open_unixsock())
 
-    def __init__(self, websock):
+    def __init__(self, websock, offset=0):
         # self.reader = None
         # self.writer = None
         self.protocol = None
         self.websock = websock
+        self.offset = offset
 
         asyncio.ensure_future(self.open_unixsock())
 
@@ -188,13 +194,14 @@ class UnixSocketClient():
             self.protocol.send_data("play\n")
 
     def seek(self, seek_dst):
-        log.info("Received request to seek to {}".format(seek_dst))
+        adjusted_seek = seek_dst + self.offset
+        log.info("Received request to seek to {}".format(adjusted_seek))
         if self.protocol._state == 0:
             self.protocol.send_data("pause\n")
-            self.protocol.send_data("seek {}\n".format(seek_dst))
+            self.protocol.send_data("seek {}\n".format(adjusted_seek))
             self.protocol.send_data("pause\n")
         else:
-            self.protocol.send_data("seek {}\n".format(seek_dst))
+            self.protocol.send_data("seek {}\n".format(adjusted_seek))
             self._periodic_probe()
 
     def _periodic_probe(self):

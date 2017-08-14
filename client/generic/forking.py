@@ -19,14 +19,15 @@ class ForkingClient:
     POLL_PERIOD = 0.9
     ua = "{}_forking_{}".format(sys.platform, '.'.join(map(str, _version)))
 
-    def __init__(self, sock):
+    def __init__(self, sock, offset=0):
         self._sock = sock
         self._define_commands()
 
         self._state = "Paused"
         self._title = ""
-        self._position = -1
-        self._length = -1
+        self._position = 0
+        self._length = 0
+        self.offset = offset
 
         log.info("Initialized {} player".format(self.__class__.__name__))
         loop = asyncio.get_event_loop()
@@ -64,9 +65,10 @@ class ForkingClient:
         d.add_done_callback(resume_helper)
 
     def seek(self, seek_dst):
-        log.info("Received request to seek to {}".format(seek_dst))
+        adjusted_seek = seek_dst + self.offset
+        log.info("Received request to seek to {}".format(adjusted_seek))
         d = asyncio.ensure_future(
-            self._fork_process(self._seek_cmd.format(seek=seek_dst)))
+            self._fork_process(self._seek_cmd.format(seek=adjusted_seek)))
 
         def seek_helper(_):
             d2 = asyncio.ensure_future(self._fetch_position())
@@ -85,10 +87,14 @@ class ForkingClient:
 
         """
         log.debug("Reporting state")
+        if self._length:
+            adjusted_position = self._position - self.offset
+        else:
+            adjusted_position = self._position
         self._sock.emit("update state", {
             "title": self._title,
             "status": self._state,
-            "position": "{}/{}".format(self._position, self._length),
+            "position": "{}/{}".format(adjusted_position, self._length),
             "show": show})
 
     async def _fork_process(self, cmd):
@@ -130,7 +136,7 @@ class ForkingClient:
         try:
             length = int(await self._fork_process(self._length_cmd)) // 1000000
         except ValueError:
-            length = -1
+            length = 0
 
         if state != self._state or title != self._title or length != self._length:
             show = True

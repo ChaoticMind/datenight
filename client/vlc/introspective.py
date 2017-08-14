@@ -20,13 +20,14 @@ class IntrospectiveVLCClient:
     ua = "{}_introspective_{}".format(
         sys.platform, '.'.join(map(str, _version)))
 
-    def __init__(self, sock):
+    def __init__(self, sock, offset=0):
         self._sock = sock
 
         self._state = "Paused"
         self._title = ""
         self._position = 0
-        self._length = -1
+        self._length = 0
+        self.offset = offset
 
         self.__initialize_player()
 
@@ -76,9 +77,10 @@ class IntrospectiveVLCClient:
             log.error("Can't resume current file (if any)")
 
     def seek(self, seek_dst):
-        log.info("Received request to seek to {}".format(seek_dst))
+        adjusted_seek = seek_dst + self.offset
+        log.info("Received request to seek to {}".format(adjusted_seek))
         try:
-            self._player.set_position(seek_dst * 1000000)
+            self._player.set_position(adjusted_seek * 1000000)
         except GLib.GError:
             log.error("Can't seek current file (if any)")
         except OverflowError:
@@ -114,7 +116,7 @@ class IntrospectiveVLCClient:
         if 'mpris:length' in e.keys():
             length = int(e['mpris:length']) // 1000000
         else:
-            length = -1
+            length = 0
 
         if (title != self._title) or (length and (length != self._length)):
             self._title = title
@@ -138,7 +140,7 @@ class IntrospectiveVLCClient:
         log.info("Player is stopped...")
         self._state = "Stopped"
         self._title = ""
-        self._length = -1
+        self._length = 0
         self._report_and_reschedule(show=True)
 
     def _on_exit(self, player):
@@ -154,11 +156,15 @@ class IntrospectiveVLCClient:
 
         self.__initialize_player()
         self._position = self._player.get_property("position") // 1000000
+        if self._length and self._position:
+            adjusted_position = self._position - self.offset
+        else:
+            adjusted_position = self._position
         log.debug("Reporting state")
         self._sock.emit("update state", {
             "title": self._title,
             "status": self._state,
-            "position": "{}/{}".format(self._position, self._length),
+            "position": "{}/{}".format(adjusted_position, self._length),
             "show": show})
 
         loop = asyncio.get_event_loop()

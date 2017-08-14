@@ -52,16 +52,21 @@ def main():
 
     # optional arguments
     parser.add_argument('-v', action='count',
-                        help="verbosity increases with each 'v' | critical/error/warning/info/debug",
+                        help="verbosity increases with each 'v' "
+                             "| critical/error/warning/info/debug",
                         default=0)
     parser.add_argument('-s', '--server', type=str, default="localhost",
                         help="hostname to connect to")
     parser.add_argument('-p', '--port', default=None, type=int,
-                        help="port to connect to (if unspecified, defaults to 80 for http:// and 443 for https://)")
+                        help="port to connect to (if unspecified, defaults to "
+                             "80 for http:// and 443 for https://)")
     parser.add_argument('-c', '--client', default=default_client, type=str,
-                        choices=clients.keys(), help="Select a client to use")
+                        choices=clients.keys(), help="Choice of client to use")
     parser.add_argument('-a', '--alias', type=str, default=None,
                         help="Name by which this publisher will be known as")
+    parser.add_argument('-o', '--offset', default=0, type=int,
+                        help="Offset (+/- <seconds> if any), to apply on the "
+                             "local file")
     parser.add_argument('-V', '--version', action='version',
                         version="%(prog)s v{} ({})".format(
                             '.'.join(map(str, _version)), get_commit_id()),
@@ -77,7 +82,8 @@ def main():
             from client.vlc.introspective import IntrospectiveVLCClient
         except ValueError:
             print(
-                "You don't have playerctl installed (needed for the introspective client)\n"
+                "You don't have playerctl installed "
+                "(needed for the playerctl client)\n"
                 "Install it or use an alternative client with the -c flag")
             return 1
         else:
@@ -87,7 +93,8 @@ def main():
             import gbulb
         except ImportError:
             print(
-                "You don't have the gbulb module installed (needed for the introspective client)\n"
+                "You don't have the gbulb module installed "
+                "(needed for the introspective client)\n"
                 "Install it or use an alternative client with the -c flag")
             return 1
         else:
@@ -122,7 +129,7 @@ def main():
     loop = asyncio.get_event_loop()
     loop.call_soon(publish.regular_peek, loop)
 
-    client = clients[args.client](publish)
+    client = clients[args.client](publish, args.offset)
     publish.initialize_namespace(client)
 
     # loop.set_debug(True)
