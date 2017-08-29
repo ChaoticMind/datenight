@@ -108,8 +108,8 @@ def connect_publisher():
         return
 
     log.info(
-        "A publisher just connected (id={}, nick={}) - total publishers: {})".format(
-            request.sid, x, len(publishers)))
+        "A publisher just connected (id={}, nick={})".format(request.sid, x) +
+        " - total publishers: {})".format(len(publishers)))
     emit('update publishers',
          {'data': clean_publishers(), 'new': x, 'old': None},
          namespace='/subscribe', broadcast=True)
@@ -212,13 +212,12 @@ def disconnect_publisher():
         del publishers[request.sid]
     except KeyError:  # nick was never assigned
         log.info(
-            'publisher {} just disconnected without a nick ever been assigned - total: {}'.format(
-                request.sid, len(publishers)))
+            'publisher {} just disconnected without a '.format(request.sid) +
+            'nick ever been assigned - total: {}'.format(len(publishers)))
     else:
         log.info(
-            'publisher {} just disconnected - total: {}'.format(request.sid,
-                                                                len(
-                                                                    publishers)))
+            'publisher {} just disconnected - total: {}'.format(
+                request.sid, len(publishers)))
         emit('update publishers',
              {'data': clean_publishers(), 'new': None, 'old': old_nick},
              namespace='/subscribe', broadcast=True)

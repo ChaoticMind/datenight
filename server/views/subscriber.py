@@ -61,10 +61,11 @@ def connect_subscriber():
 
     log.info("Someone (id={}, nick={}) just subscribed! - total: {}".format(
         request.sid, assigned_nick, len(subscribers)))
-    emit('nick change', {
+    emit(
+        'nick change', {
             'new': assigned_nick, 'old': None,
             "color": assigned_color, 'complete': clean_subscribers(),
-         }, broadcast=False)
+        }, broadcast=False)
     emit('update subscriptions',
          {'complete': clean_subscribers(), 'new': assigned_nick, 'old': None},
          broadcast=True, include_self=False)

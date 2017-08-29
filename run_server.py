@@ -15,15 +15,16 @@ def main():
         description='datenight server')
 
     # optional arguments
-    parser.add_argument('-v', action='count',
-                        help="verbosity increases with each 'v' | critical/error/warning/info/debug",
-                        default=0)
+    parser.add_argument('-v', action='count', default=0,
+                        help="verbosity increases with each 'v' | "
+                             "critical/error/warning/info/debug")
     parser.add_argument('-a', '--all-interfaces', action="store_true",
                         help="Listen on 0.0.0.0? (otherwise 127.0.0.1)")
     parser.add_argument('-p', '--port', default=5500, type=int,
                         help="port to listen on")
     parser.add_argument('-d', '--debug', action="store_true",
-                        help="run in debug mode (Warning: don't run this with -a)")
+                        help="run in debug mode "
+                             "(Warning: don't run this with -a)")
     parser.add_argument('-V', '--version', action='version',
                         version="%(prog)s v{}".format(
                             '.'.join(map(str, __version__))),

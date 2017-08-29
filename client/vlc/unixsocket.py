@@ -121,7 +121,8 @@ class UnixSocketClient:
                         emit, show = True, False
                     else:
                         emit = False
-                    self._title, self._position, self._length = title, position, length
+                    self._title = title
+                    self._position, self._length = position, length
 
             if emit:
                 self.emit_to_sock(show)
@@ -162,7 +163,8 @@ class UnixSocketClient:
             ProtocolWithParam = partial(UnixSocketClient.UnixProtocol, self)
             transport, self.protocol = await loop.create_unix_connection(
                 ProtocolWithParam, path=expected_path)
-        # self.reader, self.writer = await asyncio.open_unix_connection(expected_path)
+        # reader, writer = await asyncio.open_unix_connection(expected_path)
+        # self.reader, self.writer = reader, writer
         except FileNotFoundError:
             log.critical('no unix socket found at {} - is vlc open?'.format(
                 expected_path))

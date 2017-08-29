@@ -138,12 +138,15 @@ class ForkingClient:
         except ValueError:
             length = 0
 
-        if state != self._state or title != self._title or length != self._length:
+        if (state != self._state or
+                title != self._title or
+                length != self._length):
             show = True
         else:
             show = False
 
-        self._state, self._title, self._position, self._length = state, title, position, length
+        self._state, self._title = state, title
+        self._position, self._length = position, length
 
         self._report_state(show=show)
         loop = asyncio.get_event_loop()
