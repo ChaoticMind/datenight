@@ -6,8 +6,8 @@ import asyncio
 
 import gi
 
-gi.require_version('Playerctl', '1.0')  # noqa
-from gi.repository import GLib, Playerctl
+gi.require_version('Playerctl', '2.0')
+from gi.repository import GLib, Playerctl  # noqa: E402
 
 _version = (0, 0, 1)  # TODO: should be in __init__()
 
@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 class IntrospectiveVLCClient:
     """Uses GLib introspection library (see playerctl documentation)"""
-    REPORT_PERIOD = 1
+    REPORT_PERIOD_S = 1
     ua = "{}_introspective_{}".format(
         sys.platform, '.'.join(map(str, _version)))
 
@@ -48,18 +48,23 @@ class IntrospectiveVLCClient:
                 self._on_play(self._player)  # set state etc
             elif self._player.get_property("status") == "Paused":
                 self._on_pause(self._player)  # set state etc
+            elif self._player.get_property("status") == "Stopped":
+                self._on_stop(self._player)  # set state etc
             else:
-                log.error("Player in unknown state")
+                log.warning(f"Player in unknown state: "
+                            f"{self._player.get_property('status')}")
         else:
             self._on_stop(self._player)  # set state etc
 
     def __initialize_player(self):
+        log.info('initializing player')
         self._player = Playerctl.Player(player_name='vlc')
-        self._player.on('play', self._on_play)
-        self._player.on('pause', self._on_pause)
-        self._player.on('stop', self._on_stop)
-        self._player.on('exit', self._on_exit)
-        self._player.on('metadata', self._on_metadata)
+        self._player.connect('playback-status::playing', self._on_play)
+        self._player.connect('playback-status::paused', self._on_pause)
+        self._player.connect('playback-status::stopped', self._on_stop)
+        self._player.connect('seeked', self._on_seek)
+        self._player.connect('exit', self._on_exit)
+        self._player.connect('metadata', self._on_metadata)
 
     # actions requested
     def pause(self):
@@ -126,17 +131,17 @@ class IntrospectiveVLCClient:
                 self._report_and_reschedule(
                     show=False)  # too spammy on file change if show
 
-    def _on_play(self, player):
+    def _on_play(self, player, status=None):
         log.info("Playing: {}".format(self._title))
         self._state = "Playing"
         self._report_and_reschedule(show=True)
 
-    def _on_pause(self, player):
+    def _on_pause(self, player, status=None):
         log.info("Paused: {}".format(self._title))
         self._state = "Paused"
         self._report_and_reschedule(show=True)
 
-    def _on_stop(self, player):
+    def _on_stop(self, player, status=None):
         log.info("Player is stopped...")
         self._state = "Stopped"
         self._title = ""
@@ -144,7 +149,12 @@ class IntrospectiveVLCClient:
         self._report_and_reschedule(show=True)
 
     def _on_exit(self, player):
+        log.info('Player exited!')
         return self._on_stop(player)
+
+    def _on_seek(self, player, seek):
+        log.info(f'Seeked to {seek}')
+        self._report_and_reschedule(show=False)
 
     # periodic report
     def _report_and_reschedule(self, show=False):
@@ -154,7 +164,6 @@ class IntrospectiveVLCClient:
         """
         self.handle.cancel()
 
-        self.__initialize_player()
         self._position = self._player.get_property("position") // 1000000
         if self._length and self._position:
             adjusted_position = self._position - self.offset

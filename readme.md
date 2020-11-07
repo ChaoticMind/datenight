@@ -1,4 +1,4 @@
-### Datenight ###
+## Datenight ##
 
 Datenight aims to solve the problem of sync'ing when multiple parties are co-consuming the same media.
 
@@ -8,14 +8,23 @@ Datenight aims to solve the problem of sync'ing when multiple parties are co-con
 
 #### Client dependencies ####
 
-- On macOS and Linux:
+- On macOS and Linux (via unixsocket):
 	- Python3.8
 	- SocketIO-client ([pypi](https://pypi.python.org/pypi/socketIO-client) - [github](https://github.com/invisibleroads/socketIO-client))
 		- `pip install socketIO_client`
 - On Linux:
-	- playerctl ([AUR](https://aur.archlinux.org/packages/playerctl/) - [github](https://github.com/acrisci/playerctl)) if you want to use the introspective (recommended) or forking clients
-	- gbulb ([pypi](https://pypi.python.org/pypi/gbulb) - [github](https://github.com/nathan-hoad/gbulb)) if you want to use the introspective client (recommended)
-		- `pip install gbulb`
+	- playerctl ([Arch](https://www.archlinux.org/packages/community/x86_64/playerctl/) - [github](https://github.com/acrisci/playerctl)) if you want to use the introspective (recommended) or forking clients
+
+	Additionally, for the introspective client (recommended):
+	- PyGObject ([pypi](https://pypi.org/project/PyGObject/))
+		- `pip install PyGObject`
+	- GObject Introspection ([upstream](https://wiki.gnome.org/Projects/GObjectIntrospection))
+		- `sudo pacman -S gobject-introspection`
+
+	And one of the following two packages:
+	- gbulb ([github](https://github.com/nathan-hoad/gbulb) - [AUR](https://aur.archlinux.org/packages/python-gbulb/)) Unmaintained upstream, use AUR to get py3.8 patch (recommended)
+	- asyncio-glib ([pypi](https://pypi.python.org/pypi/asyncio-glib) - [github](https://github.com/jhenstridge/asyncio-glib) - [AUR](https://aur.archlinux.org/packages/python-asyncio-glib/)) This works as a fallback from gbulb, but doesn't immediately report status due to an upstream bug
+		- `pip install asyncio-glib`
 
 Dependencies can be installed via `pip install -r client_requirements`
 

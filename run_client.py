@@ -93,10 +93,20 @@ def main():
             import gbulb
         except ImportError:
             print(
-                "You don't have the gbulb module installed "
-                "(needed for the introspective client)\n"
-                "Install it or use an alternative client with the -c flag")
-            return 1
+                "You don't have the gbulb module installed. Falling back to "
+                "asyncio_glib which has an upstream issue preventing it from "
+                "reporting status immediately (delaying async events)")
+            try:
+                import asyncio_glib
+            except ImportError:
+                print(
+                    "You don't have the asyncio_glib module installed "
+                    "(needed for the introspective client)\n"
+                    "Install it or use an alternative client with the -c flag")
+                return 1
+            else:
+                asyncio.set_event_loop_policy(
+                    asyncio_glib.GLibEventLoopPolicy())
         else:
             gbulb.install()
 
