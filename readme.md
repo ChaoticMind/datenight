@@ -1,7 +1,6 @@
 ### Datenight ###
 
-Datenight aims to solve the problem of online sync'ing when multiple parties
-are consuming the same media together over the internet.
+Datenight aims to solve the problem of sync'ing when multiple parties are co-consuming the same media.
 
 
 ### Client ###
@@ -9,8 +8,8 @@ are consuming the same media together over the internet.
 
 #### Client dependencies ####
 
-- On OSX and Linux:
-	- Python3.5
+- On macOS and Linux:
+	- Python3.8
 	- SocketIO-client ([pypi](https://pypi.python.org/pypi/socketIO-client) - [github](https://github.com/invisibleroads/socketIO-client))
 		- `pip install socketIO_client`
 - On Linux:
@@ -18,12 +17,14 @@ are consuming the same media together over the internet.
 	- gbulb ([pypi](https://pypi.python.org/pypi/gbulb) - [github](https://github.com/nathan-hoad/gbulb)) if you want to use the introspective client (recommended)
 		- `pip install gbulb`
 
+Dependencies can be installed via `pip install -r client_requirements`
+
 
 #### Client notes ####
 
 - The only client supported so far is vlc
 - Having two clients open is unsupported and results in undefined behavior
-- The unixsocket client on OS X or linux requires a one-time configuration to VLC. On vlc 2.2.3, the instructions are as follows:
+- The unixsocket client on macOS or linux requires a one-time configuration to VLC. On vlc 2.2.3, the instructions are as follows:
 	1. Go to tools --> preferences (ctrl/cmd + P)
 	2. Toggle "show settings" to "All" instead of "Simple" (bottom left corner)
 	3. Under "Interface" --> "Main interfaces", tick "Remote control interface"
@@ -43,6 +44,8 @@ The client can be run via the `./run_client.py` script. `-h` for help.
 
 - Python3
 - Flask-SocketIO
+
+Dependencies can be installed via `pip install -r server_requirements`
 
 
 #### Running the server ####
