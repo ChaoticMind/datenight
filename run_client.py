@@ -36,7 +36,7 @@ def main():
         asyncio.set_event_loop(loop)
         return 1
     else:
-        print("Platform '{}' not supported".format(sys.platform))
+        print(f"Platform '{sys.platform}' not supported")
         return 1
 
     def get_commit_id():
@@ -75,7 +75,7 @@ def main():
     args = parser.parse_args()
     if args.client not in clients:
         # fallback if the default_client is invalid
-        print("Must choose a client (-c) from {}".format(clients.keys()))
+        print(f"Must choose a client (-c) from {clients.keys()}")
         return 1
     if args.client == "introspective":
         try:
@@ -112,7 +112,7 @@ def main():
 
     # logger setup
     level = max(10, 50 - (10 * args.v))
-    print('Logging level is: {}'.format(logging.getLevelName(level)))
+    print(f'Logging level is: {logging.getLevelName(level)}')
     logger = logging.getLogger(__name__)
     logger.setLevel(level)
     formatter = logging.Formatter('%(asctime)s: %(levelname)s:\t%(message)s')

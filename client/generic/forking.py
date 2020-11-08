@@ -31,7 +31,7 @@ class ForkingClient:
         self._length = 0
         self.offset = offset
 
-        log.info("Initialized {} player".format(self.__class__.__name__))
+        log.info(f"Initialized {self.__class__.__name__} player")
         asyncio.create_task(self._periodic_report_metadata())
 
     def _define_commands(self):
@@ -61,7 +61,7 @@ class ForkingClient:
 
     def seek(self, seek_dst):
         adjusted_seek = seek_dst + self.offset
-        log.info("Received request to seek to {}".format(adjusted_seek))
+        log.info(f"Received request to seek to {adjusted_seek}")
         asyncio.create_task(self._fork_and_report(
             self._seek_cmd.format(seek=adjusted_seek),
             self._fetch_position,
@@ -98,8 +98,7 @@ class ForkingClient:
                 stderr=asyncio.subprocess.STDOUT)
         except FileNotFoundError:
             log.critical(
-                "Couldn't launch the command '{}'. Is it installed?".format(
-                    cmd))
+                f"Couldn't launch the command '{cmd}'. Is it installed?")
             return ""
         stdout_data, stderr_data = await proc.communicate()
         await proc.wait()

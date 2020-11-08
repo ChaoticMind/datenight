@@ -34,7 +34,7 @@ def main():
 
     # logger setup
     level = max(10, 50 - (10 * args.v))
-    print('Logging level is: {}'.format(logging.getLevelName(level)))
+    print(f'Logging level is: {logging.getLevelName(level)}')
     logger = logging.getLogger(__name__)
     logger.setLevel(level)
     formatter = logging.Formatter('%(asctime)s: %(levelname)s:\t%(message)s')

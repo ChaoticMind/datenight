@@ -26,13 +26,12 @@ class Subscriber:
 # subscribe
 @socketio.on('connect', namespace='/subscribe')
 def connect_subscriber():
-    log.info("Connecting subscriber {}".format(request.sid))
+    log.info(f"Connecting subscriber {request.sid}")
     other_nicks = {z.nick for z in subscribers.values()}.union(
         {z.nick for z in publishers.values()})
 
     if request.sid in subscribers:
-        raise RuntimeError(
-            "{} (subscriber) Connected twice.".format(request.sid))
+        raise RuntimeError(f"{request.sid} (subscriber) Connected twice.")
 
     nicks_pool = subscribers_nick_presets
     for used_nick in other_nicks:
@@ -85,13 +84,13 @@ def display_help(_):
 
 @socketio.on("pause", namespace='/subscribe')
 def request_pause(_):
-    log.info("pause requested by {}".format(request.sid))
+    log.info(f"pause requested by {request.sid}")
     requester_nick = subscribers[request.sid].nick
     global current_state
     current_state = PAUSED
     emit(
         "log_message", {
-            "data": 'Pause requested by "{}"'.format(requester_nick),
+            "data": f'Pause requested by "{requester_nick}"',
             "state": STATE_NAMES[current_state]
         }, namespace="/subscribe", broadcast=True, include_self=True)
     emit("pause", namespace="/publish", broadcast=True)
@@ -99,13 +98,13 @@ def request_pause(_):
 
 @socketio.on("resume", namespace='/subscribe')
 def request_resume(_):
-    log.info("resume requested by {}".format(request.sid))
+    log.info(f"resume requested by {request.sid}")
     requester_nick = subscribers[request.sid].nick
     global current_state
     current_state = PLAYING
     emit(
         "log_message", {
-            "data": 'Resume requested by "{}"'.format(requester_nick),
+            "data": f'Resume requested by "{requester_nick}"',
             "state": STATE_NAMES[current_state]
         }, namespace="/subscribe", broadcast=True, include_self=True)
     emit("resume", namespace="/publish", broadcast=True)
@@ -113,7 +112,7 @@ def request_resume(_):
 
 @socketio.on("seek", namespace='/subscribe')
 def request_seek(dst):
-    log.info("seek requested to {} by {}".format(dst, request.sid))
+    log.info(f"seek requested to {dst} by {request.sid}")
     requester_nick = subscribers[request.sid].nick
     try:
         seek_dst = int(dst['seek'])
@@ -144,14 +143,14 @@ def change_nick(msg):
         return
     if old_nick == new_nick:
         emit("log_message",
-             {"data": 'Your nick is already "{}"'.format(new_nick)})
+             {"data": f'Your nick is already "{new_nick}"'})
         return
     else:
         other_nicks = {z.nick for z in subscribers.values()}.union(
             {z.nick for z in publishers.values()})
         if new_nick in other_nicks:
             emit("log_message",
-                 {"data": "Nick {} already exists".format(new_nick)})
+                 {"data": f"Nick {new_nick} already exists"})
             return
 
     subscribers[request.sid].nick = new_nick
@@ -166,7 +165,7 @@ def change_nick(msg):
 @socketio.on('broadcast message', namespace='/subscribe')
 def broadcast_message(message):
     """A chat message to other subscribers"""
-    log.info("Subscriber broadcasting: {}".format(message))
+    log.info(f"Subscriber broadcasting: {message}")
     nick = subscribers[request.sid].nick
     color = subscribers[request.sid].color
     try:

@@ -32,7 +32,7 @@ class Publisher:
             self.TIMEOUT_THRESHOLD, self.__process_timeout)
 
     def __ping(self):
-        log.debug("{}: ping request".format(self.__sid))
+        log.debug(f"{self.__sid}: ping request")
         self.__ping_token = random.randint(1, 10000000)
         self.__ping_ts = time.time()
         socketio.emit('latency_ping', {"token": self.__ping_token},
@@ -52,9 +52,9 @@ class Publisher:
                        'show': False}, namespace='/subscribe', broadcast=True)
 
     def pong(self, token):
-        log.debug("{}: pong received".format(self.__sid))
+        log.debug(f"{self.__sid}: pong received")
         if not self.__ping_token == token:
-            log.warning("{}: Invalid token, ignoring...".format(self.__sid))
+            log.warning(f"{self.__sid}: Invalid token, ignoring...")
             return
         self.latency = round(time.time() - self.__ping_ts, 3)
         socketio.emit('update publishers',
@@ -72,7 +72,7 @@ class Publisher:
                 'latency': self.latency, "title": self.title, 'ua': self.ua}
 
     def remove_timeouts(self):
-        log.info("Removing timers from {}".format(self.__sid))
+        log.info(f"Removing timers from {self.__sid}")
         self.__heartbeat.cancel()
         self.__timeout.cancel()
 
@@ -86,14 +86,13 @@ class Publisher:
 # publish
 @socketio.on('connect', namespace='/publish')
 def connect_publisher():
-    log.info("Connecting publisher {}".format(request.sid))
+    log.info(f"Connecting publisher {request.sid}")
     other_publisher_nicks = {z.nick for z in publishers.values()}
     other_nicks = other_publisher_nicks.union(
         {z.nick for z in subscribers.values()})
 
     if request.sid in publishers:
-        raise RuntimeError(
-            "{} (publisher) Connected twice.".format(request.sid))
+        raise RuntimeError(f"{request.sid} (publisher) Connected twice.")
     for i in range(10):
         x = str(random.randint(1, 10000))
         if x not in other_nicks:
@@ -107,9 +106,8 @@ def connect_publisher():
              {"data": "Failed to assign you a nick", "fatal": True})
         return
 
-    log.info(
-        "A publisher just connected (id={}, nick={})".format(request.sid, x) +
-        " - total publishers: {})".format(len(publishers)))
+    log.info(f"A publisher just connected (id={request.sid}, nick={x})"
+             f" - total publishers: {len(publishers)}")
     emit('update publishers',
          {'data': clean_publishers(), 'new': x, 'old': None},
          namespace='/subscribe', broadcast=True)
@@ -118,7 +116,7 @@ def connect_publisher():
 
 @socketio.on('update state', namespace='/publish')
 def message_trigger(message):
-    log.info("Publisher state updated: {}".format(message))
+    log.info(f"Publisher state updated: {message}")
     nick = publishers[request.sid].nick
     # TODO: accept partial updates
     try:
@@ -127,7 +125,7 @@ def message_trigger(message):
         publishers[request.sid].position = message['position']
         show = message.get('show', False)
     except KeyError as e:
-        msg = "Received missing data: {}".format(e)
+        msg = f"Received missing data: {e}"
         log.error(msg)
         emit('log_message', {'data': msg}, namespace='/publish',
              broadcast=False)
@@ -158,7 +156,7 @@ def update_nick(msg):
         return
     if old_nick == new_nick:
         emit("log_message",
-             {"data": "Your nick is already {}".format(new_nick)})
+             {"data": f"Your nick is already {new_nick}"})
         return
     else:
         subscribers_nicks = {z.nick for z in subscribers.values()}
@@ -166,12 +164,12 @@ def update_nick(msg):
             {z.nick for z in publishers.values()})
         if new_nick in other_nicks:
             emit("log_message",
-                 {"data": "Nick {} already exists".format(new_nick)})
+                 {"data": f"Nick {new_nick} already exists"})
             return
 
     publishers[request.sid].nick = new_nick
 
-    emit('log_message', {'data': "nick updated to {}".format(new_nick)},
+    emit('log_message', {'data': f"nick updated to {new_nick}"},
          broadcast=False)
     emit('update publishers',
          {'data': clean_publishers(), 'new': new_nick, 'old': old_nick},
@@ -192,7 +190,7 @@ def set_ua(msg):
     publishers[request.sid].ua = ua
     nick = publishers[request.sid].nick
 
-    emit('log_message', {'data': "ua set to {}".format(ua)}, broadcast=False)
+    emit('log_message', {'data': f"ua set to {ua}"}, broadcast=False)
     emit('update publishers',
          {'data': clean_publishers(), 'update': nick, 'show': False},
          namespace='/subscribe', broadcast=True)
@@ -211,9 +209,8 @@ def disconnect_publisher():
         publishers[request.sid].remove_timeouts()
         del publishers[request.sid]
     except KeyError:  # nick was never assigned
-        log.info(
-            'publisher {} just disconnected without a '.format(request.sid) +
-            'nick ever been assigned - total: {}'.format(len(publishers)))
+        log.info(f'publisher {request.sid} just disconnected without a '
+                 f'nick ever been assigned - total: {len(publishers)}')
     else:
         log.info(
             'publisher {} just disconnected - total: {}'.format(

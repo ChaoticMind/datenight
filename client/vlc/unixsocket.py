@@ -13,7 +13,7 @@ class UnixSocketClient:
     """Currently specific to vlc, but can be generalized similar to
     ForkingClient """
     REPORT_PERIOD = 1
-    ua = "{}_unixsocket_{}".format(sys.platform, '.'.join(map(str, _version)))
+    ua = f"{sys.platform}_unixsocket_{'.'.join(map(str, _version))}"
 
     class UnixProtocol(asyncio.Protocol):
         def __init__(self, client: 'UnixSocketClient', *args, **kwargs):
@@ -45,7 +45,7 @@ class UnixSocketClient:
             log.debug("Connection to unixsocket established")
 
         def send_data(self, data):
-            log.debug("Writing to the unix socket: {}".format(data.encode()))
+            log.debug(f"Writing to the unix socket: {data.encode()}")
             self._transport.write(data.encode())
 
         @staticmethod
@@ -64,7 +64,7 @@ class UnixSocketClient:
 
         def data_received(self, data):
             decoded = data.decode('utf-8').strip()
-            log.debug('Data received on the unix socket: {}'.format(decoded))
+            log.debug(f'Data received on the unix socket: {decoded}')
             emit = False
 
             lines = decoded.split('\r\n')
@@ -107,7 +107,7 @@ class UnixSocketClient:
                     # e.g. volume changed
                     pass
 
-            log.debug("received {} lines".format(len(lines)))
+            log.debug(f"received {len(lines)} lines")
             if len(lines) == 3:
                 position, title, length = lines
                 try:
@@ -169,8 +169,8 @@ class UnixSocketClient:
         # reader, writer = await asyncio.open_unix_connection(expected_path)
         # self.reader, self.writer = reader, writer
         except FileNotFoundError:
-            log.critical('no unix socket found at {} - is vlc open?'.format(
-                expected_path))
+            log.critical(
+                f'no unix socket found at {expected_path} - is vlc open?')
             loop = asyncio.get_event_loop()
             delayed_ensure_future = partial(asyncio.ensure_future,
                                             self.open_unixsock())
@@ -182,7 +182,7 @@ class UnixSocketClient:
     # actions requested
     def pause(self):
         log.info("Received request to pause")
-        log.info("Current state is: {}".format(self.protocol._state))
+        log.info(f"Current state is: {self.protocol._state}")
         # 0: "Paused",
         # 1: "Playing",
         # 2: "Stopped"
@@ -191,7 +191,7 @@ class UnixSocketClient:
 
     def resume(self):
         log.info("Received request to resume")
-        log.info("Current state is: {}".format(self.protocol._state))
+        log.info(f"Current state is: {self.protocol._state}")
         if self.protocol._state == 0:
             self.protocol.send_data("pause\n")  # means "resume"
         elif self.protocol._state == 2:
@@ -200,13 +200,13 @@ class UnixSocketClient:
 
     def seek(self, seek_dst):
         adjusted_seek = seek_dst + self.offset
-        log.info("Received request to seek to {}".format(adjusted_seek))
+        log.info(f"Received request to seek to {adjusted_seek}")
         if self.protocol._state == 0:
             self.protocol.send_data("pause\n")
-            self.protocol.send_data("seek {}\n".format(adjusted_seek))
+            self.protocol.send_data(f"seek {adjusted_seek}\n")
             self.protocol.send_data("pause\n")
         else:
-            self.protocol.send_data("seek {}\n".format(adjusted_seek))
+            self.protocol.send_data(f"seek {adjusted_seek}\n")
             self._periodic_probe()
 
     def _periodic_probe(self):

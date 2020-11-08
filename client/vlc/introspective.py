@@ -17,8 +17,7 @@ log = logging.getLogger(__name__)
 class IntrospectiveVLCClient:
     """Uses GLib introspection library (see playerctl documentation)"""
     REPORT_PERIOD_S = 1
-    ua = "{}_introspective_{}".format(
-        sys.platform, '.'.join(map(str, _version)))
+    ua = f"{sys.platform}_introspective_{'.'.join(map(str, _version))}"
 
     def __init__(self, sock, offset=0):
         self._sock = sock
@@ -31,7 +30,7 @@ class IntrospectiveVLCClient:
 
         self.__initialize_player()
 
-        log.info("Initialized {} player".format(self.__class__.__name__))
+        log.info(f"Initialized {self.__class__.__name__} player")
         self.handle = asyncio.create_task(self._report_and_reschedule())
         # triggerring _report_and_reschedule() not strictly necessary since
         # on_stop/_on_play/_on_pause are called next, but just in case.
@@ -42,7 +41,7 @@ class IntrospectiveVLCClient:
                               dontsend=True)  # set metadata
 
         if self._title:
-            log.info("Player is running with {}".format(self._title))
+            log.info(f"Player is running with {self._title}")
             if self._player.get_property("status") == "Playing":
                 self._on_play(self._player)  # set state etc
             elif self._player.get_property("status") == "Paused":
@@ -82,7 +81,7 @@ class IntrospectiveVLCClient:
 
     def seek(self, seek_dst):
         adjusted_seek = seek_dst + self.offset
-        log.info("Received request to seek to {}".format(adjusted_seek))
+        log.info(f"Received request to seek to {adjusted_seek}")
         try:
             self._player.set_position(adjusted_seek * 1000000)
         except GLib.GError:
@@ -92,7 +91,7 @@ class IntrospectiveVLCClient:
 
     # events occurred
     def _on_metadata(self, player, e, dontsend=False):
-        log.debug("New metadata: {}".format(e))
+        log.debug(f"New metadata: {e}")
         # set title
         if 'xesam:artist' in e.keys() and 'xesam:title' in e.keys():  # music
             log.info('Now playing track: {artist} - {title}'.format(
@@ -100,11 +99,11 @@ class IntrospectiveVLCClient:
             title = player.get_title()
         elif 'xesam:title' in e.keys():  # vid with metadata
             title = player.get_title()
-            log.info('Now playing file: {}'.format(title))
+            log.info(f'Now playing file: {title}')
         elif 'xesam:url' in e.keys():  # arbitrary file
             fname = os.path.basename(e['xesam:url'])
             title = urllib.request.unquote(fname)
-            log.info('Now playing file: {}'.format(title))
+            log.info(f'Now playing file: {title}')
         else:
             if player.get_property("status") == "Stopped":
                 title = ""
@@ -130,12 +129,12 @@ class IntrospectiveVLCClient:
                 )
 
     def _on_play(self, player, status=None):
-        log.info("Playing: {}".format(self._title))
+        log.info(f"Playing: {self._title}")
         self._state = "Playing"
         asyncio.create_task(self._report_and_reschedule(show=True))
 
     def _on_pause(self, player, status=None):
-        log.info("Paused: {}".format(self._title))
+        log.info(f"Paused: {self._title}")
         self._state = "Paused"
         asyncio.create_task(self._report_and_reschedule(show=True))
 

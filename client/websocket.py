@@ -15,12 +15,12 @@ class PublishNamespace(AsyncClientNamespace):
     async def update_alias(self, new_alias):
         # would have been done in on_connect() if it were possible to send
         # alias to __init__
-        log.info("Requesting alias update to {}...".format(new_alias))
+        log.info(f"Requesting alias update to {new_alias}...")
         await self.emit('set nick', {"new": new_alias})
 
     async def initialize_namespace(self, client, alias=None):
         self.datenight_client = client
-        log.info("Requesting ua update to {}...".format(client.ua))
+        log.info(f"Requesting ua update to {client.ua}...")
         await self.emit('set ua', {"user_agent": client.ua})
         if alias:
             await self.update_alias(alias)
@@ -39,7 +39,7 @@ class PublishNamespace(AsyncClientNamespace):
         self.datenight_client.resume()
 
     def on_seek(self, msg):
-        log.info("Received seek request to {}".format(msg))
+        log.info(f"Received seek request to {msg}")
         try:
             seek_dst = int(msg['seek'])
         except (KeyError, ValueError):
@@ -52,9 +52,9 @@ class PublishNamespace(AsyncClientNamespace):
         try:
             nick = msg['nick']
         except KeyError:
-            log.info("remote message: {}".format(msg['data']))
+            log.info(f"remote message: {msg['data']}")
         else:
-            log.info("remote message: {}: {}".format(nick, msg['data']))
+            log.info(f"remote message: {nick}: {msg['data']}")
 
         try:
             if msg['fatal']:
@@ -64,4 +64,4 @@ class PublishNamespace(AsyncClientNamespace):
             pass
 
     def on_error(self, msg):
-        log.error("socketio error: {}".format(msg))
+        log.error(f"socketio error: {msg}")
