@@ -68,9 +68,10 @@ class UnixSocketClient:
             emit = False
 
             lines = decoded.split('\r\n')
-            one_shots = [l for l in lines if l.startswith('status change:')]
-            lines = [l for l in lines if
-                     not self._droppable_strings(l)]  # filter
+            one_shots = [line for line in lines
+                         if line.startswith('status change:')]
+            lines = [line for line in lines if
+                     not self._droppable_strings(line)]  # filter
             for x in one_shots:
                 if x.startswith("status change: ( new input:"):
                     # VLC possible bug: doesn't emit new input or "play" to the
@@ -79,27 +80,27 @@ class UnixSocketClient:
                     skip = len("status change: ( new input:")
                     fname = os.path.basename(x[skip:])
                     self._title = urllib.request.unquote(fname)
-                    self.emit_to_sock(show=True)
+                    asyncio.create_task(self.emit_to_sock(show=True))
                 elif x in self._pause_strings:
                     self._state = 0
                     log.info("Reporting pause state")
-                    self.emit_to_sock(show=True)
+                    asyncio.create_task(self.emit_to_sock(show=True))
                 elif x in self._play_strings:
                     self._state = 1
                     log.info("Reporting playing state")
-                    self.emit_to_sock(show=True)
+                    asyncio.create_task(self.emit_to_sock(show=True))
                 elif x in self._stop_strings:
                     self._state = 2
                     self._position = 0
                     self._length = 0
                     self._title = ""
                     log.info("Reporting stopped state")
-                    self.emit_to_sock(show=True)
+                    asyncio.create_task(self.emit_to_sock(show=True))
                 elif x.startswith("status change: ( time: "):
                     try:
                         skip = len("status change: ( time: ")
                         self._position = int(x[skip:-3])
-                        self.emit_to_sock(show=False)
+                        asyncio.create_task(self.emit_to_sock(show=False))
                     except ValueError:
                         pass
                 else:  # other line starting with "status change" - unsupported
@@ -125,9 +126,9 @@ class UnixSocketClient:
                     self._position, self._length = position, length
 
             if emit:
-                self.emit_to_sock(show)
+                asyncio.create_task(self.emit_to_sock(show))
 
-        def emit_to_sock(self, show):
+        async def emit_to_sock(self, show):
             # could reset the periodic probe here, but it's not really required
             # introspective client behavior is to reset it atm
             log.debug("Reporting state")
@@ -135,7 +136,7 @@ class UnixSocketClient:
                 adjusted_position = self._position - self._client.offset
             else:
                 adjusted_position = self._position
-            self._client.websock.emit("update state", {
+            await self._client.websock.emit("update state", {
                 "title": self._title,
                 "status": self._state_str[self._state],
                 "position": "{}/{}".format(adjusted_position, self._length),
@@ -144,7 +145,8 @@ class UnixSocketClient:
         def connection_lost(self, e):
             log.debug(
                 'The unix socket is now closed, cancelling periodic probe')
-            self._client.handler.cancel()
+            if self._client.prober:
+                self._client.prober.cancel()
             asyncio.ensure_future(self._client.open_unixsock())
 
     def __init__(self, websock, offset=0):
@@ -153,6 +155,7 @@ class UnixSocketClient:
         self.protocol = None
         self.websock = websock
         self.offset = offset
+        self.prober = None
 
         asyncio.ensure_future(self.open_unixsock())
 
@@ -174,7 +177,7 @@ class UnixSocketClient:
             loop.call_later(self.REPORT_PERIOD, delayed_ensure_future)
         else:
             loop = asyncio.get_event_loop()
-            self.handler = loop.call_soon(self._periodic_probe)
+            self.prober = loop.call_soon(self._periodic_probe)
 
     # actions requested
     def pause(self):
@@ -207,12 +210,12 @@ class UnixSocketClient:
             self._periodic_probe()
 
     def _periodic_probe(self):
-        self.handler.cancel()
+        self.prober.cancel()
         log.debug("Probing...")
         self.protocol.send_data("get_time\n")
         self.protocol.send_data("get_title\n")
         self.protocol.send_data("get_length\n")
 
         loop = asyncio.get_event_loop()
-        self.handler = loop.call_later(self.REPORT_PERIOD,
-                                       self._periodic_probe)
+        self.prober = loop.call_later(self.REPORT_PERIOD,
+                                      self._periodic_probe)

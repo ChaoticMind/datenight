@@ -32,9 +32,8 @@ class IntrospectiveVLCClient:
         self.__initialize_player()
 
         log.info("Initialized {} player".format(self.__class__.__name__))
-        loop = asyncio.get_event_loop()
-        self.handle = loop.call_soon(self._report_and_reschedule)
-        # loop.call_soon not necessary since
+        self.handle = asyncio.create_task(self._report_and_reschedule())
+        # triggerring _report_and_reschedule() not strictly necessary since
         # on_stop/_on_play/_on_pause are called next, but just in case.
 
         initial_metadata = self._player.get_property("metadata")
@@ -90,9 +89,6 @@ class IntrospectiveVLCClient:
             log.error("Can't seek current file (if any)")
         except OverflowError:
             log.warning("seek destination too large, ignoring...")
-        else:
-            self._report_and_reschedule(
-                show=False)  # no on_properties_changed in the lib (yet)
 
     # events occurred
     def _on_metadata(self, player, e, dontsend=False):
@@ -128,25 +124,27 @@ class IntrospectiveVLCClient:
             if length:
                 self._length = length
             if not dontsend:
-                self._report_and_reschedule(
-                    show=False)  # too spammy on file change if show
+                asyncio.create_task(
+                    # too spammy on file change if show is True
+                    self._report_and_reschedule(show=False)
+                )
 
     def _on_play(self, player, status=None):
         log.info("Playing: {}".format(self._title))
         self._state = "Playing"
-        self._report_and_reschedule(show=True)
+        asyncio.create_task(self._report_and_reschedule(show=True))
 
     def _on_pause(self, player, status=None):
         log.info("Paused: {}".format(self._title))
         self._state = "Paused"
-        self._report_and_reschedule(show=True)
+        asyncio.create_task(self._report_and_reschedule(show=True))
 
     def _on_stop(self, player, status=None):
         log.info("Player is stopped...")
         self._state = "Stopped"
         self._title = ""
         self._length = 0
-        self._report_and_reschedule(show=True)
+        asyncio.create_task(self._report_and_reschedule(show=True))
 
     def _on_exit(self, player):
         log.info('Player exited!')
@@ -154,10 +152,10 @@ class IntrospectiveVLCClient:
 
     def _on_seek(self, player, seek):
         log.info(f'Seeked to {seek}')
-        self._report_and_reschedule(show=False)
+        asyncio.create_task(self._report_and_reschedule(show=False))
 
     # periodic report
-    def _report_and_reschedule(self, show=False):
+    async def _report_and_reschedule(self, show=False):
         """:param show: A recommendation whether to explicitly log on the
         subscriber side
 
@@ -170,12 +168,13 @@ class IntrospectiveVLCClient:
         else:
             adjusted_position = self._position
         log.debug("Reporting state")
-        self._sock.emit("update state", {
+        await self._sock.emit("update state", {
             "title": self._title,
             "status": self._state,
             "position": "{}/{}".format(adjusted_position, self._length),
             "show": show})
 
-        loop = asyncio.get_event_loop()
-        self.handle = loop.call_later(self.REPORT_PERIOD,
-                                      self._report_and_reschedule)
+        self.handle.cancel()
+        self.handle = asyncio.create_task(asyncio.sleep(self.REPORT_PERIOD_S))
+        await self.handle
+        asyncio.create_task(self._report_and_reschedule())

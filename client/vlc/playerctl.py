@@ -8,8 +8,7 @@ _version = (0, 0, 1)  # TODO: should be in __init__()
 
 
 class ForkingPlayerctlClient(ForkingClient):
-    ua = "{}_forking_playerctl_{}".format(
-        sys.platform, '.'.join(map(str, _version)))
+    ua = f"{sys.platform}_forking_playerctl_{'.'.join(map(str, _version))}"
 
     def _define_commands(self):
         self._pause_cmd = "playerctl -p vlc pause"

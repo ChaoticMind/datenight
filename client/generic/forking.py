@@ -3,6 +3,8 @@ import sys
 import os
 import urllib.request
 import asyncio
+import time
+from functools import partial
 
 log = logging.getLogger(__name__)
 _version = (0, 0, 1)  # TODO: should be in __init__()
@@ -16,8 +18,8 @@ class ForkingClient:
     and self._define_commands()
 
     """
-    POLL_PERIOD = 0.9
-    ua = "{}_forking_{}".format(sys.platform, '.'.join(map(str, _version)))
+    POLL_PERIOD_S = 0.9
+    ua = f"{sys.platform}_forking_{'.'.join(map(str, _version))}"
 
     def __init__(self, sock, offset=0):
         self._sock = sock
@@ -30,8 +32,7 @@ class ForkingClient:
         self.offset = offset
 
         log.info("Initialized {} player".format(self.__class__.__name__))
-        loop = asyncio.get_event_loop()
-        self.handle = loop.call_soon(self._periodic_report_metadata)
+        asyncio.create_task(self._periodic_report_metadata())
 
     def _define_commands(self):
         """Subclasses should implement the following variables
@@ -44,44 +45,31 @@ class ForkingClient:
     # actions requested
     def pause(self):
         log.info("Received request to pause")
-        d = asyncio.ensure_future(self._fork_process(self._pause_cmd))
-
-        def pause_helper(_):
-            d2 = asyncio.ensure_future(self._fetch_state())
-            d2.add_done_callback(self._report_state_show)
-            return d2
-
-        d.add_done_callback(pause_helper)
+        asyncio.create_task(self._fork_and_report(
+            self._pause_cmd,
+            self._fetch_state,
+            partial(self._report_state, True),
+        ))
 
     def resume(self):
         log.info("Received request to resume")
-        d = asyncio.ensure_future(self._fork_process(self._resume_cmd))
-
-        def resume_helper(_):
-            d2 = asyncio.ensure_future(self._fetch_state())
-            d2.add_done_callback(self._report_state_show)
-            return d2
-
-        d.add_done_callback(resume_helper)
+        asyncio.create_task(self._fork_and_report(
+            self._resume_cmd,
+            self._fetch_state,
+            partial(self._report_state, True),
+        ))
 
     def seek(self, seek_dst):
         adjusted_seek = seek_dst + self.offset
         log.info("Received request to seek to {}".format(adjusted_seek))
-        d = asyncio.ensure_future(
-            self._fork_process(self._seek_cmd.format(seek=adjusted_seek)))
-
-        def seek_helper(_):
-            d2 = asyncio.ensure_future(self._fetch_position())
-            d2.add_done_callback(self._report_state)
-            return d2
-
-        d.add_done_callback(seek_helper)
+        asyncio.create_task(self._fork_and_report(
+            self._seek_cmd.format(seek=adjusted_seek),
+            self._fetch_position,
+            self._report_state,
+        ))
 
     # periodic poll/report
-    def _report_state_show(self, _):
-        return self._report_state(_, show=True)
-
-    def _report_state(self, _=None, show=False):
+    async def _report_state(self, show=False):
         """:param show: A recommendation whether to explicitly log on
                         the subscriber side
 
@@ -91,11 +79,16 @@ class ForkingClient:
             adjusted_position = self._position - self.offset
         else:
             adjusted_position = self._position
-        self._sock.emit("update state", {
+        await self._sock.emit("update state", {
             "title": self._title,
             "status": self._state,
             "position": "{}/{}".format(adjusted_position, self._length),
             "show": show})
+
+    async def _fork_and_report(self, fork_cmd, *callbacks):
+        await self._fork_process(fork_cmd)
+        for cb in callbacks:
+            await cb()
 
     async def _fork_process(self, cmd):
         """Note that there is no timeout on the subprocesses"""
@@ -127,8 +120,7 @@ class ForkingClient:
             self._position = 0
         return self._position
 
-    async def _poll_metadata(self):
-        self.handle.cancel()
+    async def _poll_and_report_metadata(self):
         state = await self._fetch_state()
         fname = await self._fork_process(self._title_cmd)
         title = urllib.request.unquote(os.path.basename(fname))
@@ -138,21 +130,22 @@ class ForkingClient:
         except ValueError:
             length = 0
 
-        if (state != self._state or
-                title != self._title or
-                length != self._length):
+        if (state != self._state
+                or title != self._title
+                or length != self._length):
             show = True
         else:
             show = False
 
         self._state, self._title = state, title
         self._position, self._length = position, length
+        await self._report_state(show=show)
 
-        self._report_state(show=show)
-        loop = asyncio.get_event_loop()
-        log.debug("rescheduling poll for next iteration...")
-        self.handle = loop.call_later(self.POLL_PERIOD,
-                                      self._periodic_report_metadata)
-
-    def _periodic_report_metadata(self):
-        asyncio.ensure_future(self._poll_metadata())
+    async def _periodic_report_metadata(self):
+        elapsed = 0
+        while True:
+            await asyncio.sleep(self.POLL_PERIOD_S - elapsed)
+            t1 = time.perf_counter()
+            await self._poll_and_report_metadata()
+            elapsed = time.perf_counter() - t1
+            log.debug("rescheduling poll for next iteration...")

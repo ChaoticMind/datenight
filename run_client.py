@@ -5,7 +5,7 @@ import asyncio
 import sys
 import subprocess
 
-from socketIO_client import SocketIO
+import socketio
 
 from client.websocket import PublishNamespace
 from client.vlc.playerctl import ForkingPlayerctlClient
@@ -55,7 +55,7 @@ def main():
                         help="verbosity increases with each 'v' "
                              "| critical/error/warning/info/debug",
                         default=0)
-    parser.add_argument('-s', '--server', type=str, default="localhost",
+    parser.add_argument('-s', '--server', type=str, default="http://localhost",
                         help="hostname to connect to")
     parser.add_argument('-p', '--port', default=None, type=int,
                         help="port to connect to (if unspecified, defaults to "
@@ -124,27 +124,36 @@ def main():
     logger.setLevel(level)
     logger.addHandler(sh)
 
-    # main loop
-    # logging.getLogger('').setLevel(logging.DEBUG)  # socketio debug
     if args.port is None:
         if args.server.startswith("https"):
             args.port = 443
         elif args.server.startswith("http"):
             args.port = 80
-    socket_io = SocketIO(host=args.server, port=args.port)
-    publish = socket_io.define(PublishNamespace, path='/publish')
-    if args.alias:
-        publish.update_alias(args.alias)
 
-    loop = asyncio.get_event_loop()
-    loop.call_soon(publish.regular_peek, loop)
+    return asyncio.run(start_loop(args, clients))
+
+
+async def start_loop(args, clients):
+    socket_io = socketio.AsyncClient(logger=False)
+
+    host = f'{args.server}:{args.port}'
+    try:
+        await socket_io.connect(host, namespaces=['/publish'])
+    except socketio.exceptions.ConnectionError:
+        print(f"Fatal: Couldn't connect to {host}")
+        return 1
+
+    publish = PublishNamespace(namespace='/publish')
+    socket_io.register_namespace(publish)
 
     client = clients[args.client](publish, args.offset)
-    publish.initialize_namespace(client)
+    await publish.initialize_namespace(client, args.alias)
 
-    # loop.set_debug(True)
-    # logging.getLogger('asyncio').setLevel(logging.DEBUG)
-    loop.run_forever()
+    try:
+        await socket_io.wait()
+    except ConnectionResetError:
+        print("Aborting client...")
+        return 1
 
 
 if __name__ == '__main__':

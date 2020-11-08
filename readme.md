@@ -10,8 +10,8 @@ Datenight aims to solve the problem of sync'ing when multiple parties are co-con
 
 - On macOS and Linux (via unixsocket):
 	- Python3.8
-	- SocketIO-client ([pypi](https://pypi.python.org/pypi/socketIO-client) - [github](https://github.com/invisibleroads/socketIO-client))
-		- `pip install socketIO_client`
+	- socketio ([pypi](https://pypi.python.org/pypi/socketIO-client) - [github](https://github.com/invisibleroads/socketIO-client))
+		- `pip install python-socketio`
 - On Linux:
 	- playerctl ([Arch](https://www.archlinux.org/packages/community/x86_64/playerctl/) - [github](https://github.com/acrisci/playerctl)) if you want to use the introspective (recommended) or forking clients
 
