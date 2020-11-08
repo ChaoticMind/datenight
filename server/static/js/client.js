@@ -30,7 +30,7 @@ function websock() {
     add_to_log("Socket error: " + x);
   });
 
-  socket.on('log message', function(msg) {
+  socket.on('log_message', function(msg) {
     if (msg.nick)
       add_to_log(msg.nick + ': ' + msg.data);
     else

@@ -103,7 +103,7 @@ def connect_publisher():
             break
     else:
         log.info("Couldn't assign a nick, disconnecting the publisher...")
-        emit("log message",
+        emit("log_message",
              {"data": "Failed to assign you a nick", "fatal": True})
         return
 
@@ -129,7 +129,7 @@ def message_trigger(message):
     except KeyError as e:
         msg = "Received missing data: {}".format(e)
         log.error(msg)
-        emit('log message', {'data': msg}, namespace='/publish',
+        emit('log_message', {'data': msg}, namespace='/publish',
              broadcast=False)
         return False
     else:
@@ -143,7 +143,7 @@ def ping(message):
     try:
         publishers[request.sid].pong(message['token'])
     except KeyError:
-        emit("log message", {"data": "Received bad pong", "fatal": True})
+        emit("log_message", {"data": "Received bad pong", "fatal": True})
 
 
 @socketio.on("set nick", namespace='/publish')
@@ -154,10 +154,10 @@ def update_nick(msg):
     try:
         new_nick = msg['new']
     except KeyError:
-        emit("log message", {"data": "obey the API! (missing key 'new')"})
+        emit("log_message", {"data": "obey the API! (missing key 'new')"})
         return
     if old_nick == new_nick:
-        emit("log message",
+        emit("log_message",
              {"data": "Your nick is already {}".format(new_nick)})
         return
     else:
@@ -165,13 +165,13 @@ def update_nick(msg):
         other_nicks = subscribers_nicks.union(
             {z.nick for z in publishers.values()})
         if new_nick in other_nicks:
-            emit("log message",
+            emit("log_message",
                  {"data": "Nick {} already exists".format(new_nick)})
             return
 
     publishers[request.sid].nick = new_nick
 
-    emit('log message', {'data': "nick updated to {}".format(new_nick)},
+    emit('log_message', {'data': "nick updated to {}".format(new_nick)},
          broadcast=False)
     emit('update publishers',
          {'data': clean_publishers(), 'new': new_nick, 'old': old_nick},
@@ -185,14 +185,14 @@ def set_ua(msg):
     try:
         ua = msg['user_agent']
     except KeyError:
-        emit("log message",
+        emit("log_message",
              {"data": "obey the API! (missing key 'user_agent')"})
         return
 
     publishers[request.sid].ua = ua
     nick = publishers[request.sid].nick
 
-    emit('log message', {'data': "ua set to {}".format(ua)}, broadcast=False)
+    emit('log_message', {'data': "ua set to {}".format(ua)}, broadcast=False)
     emit('update publishers',
          {'data': clean_publishers(), 'update': nick, 'show': False},
          namespace='/subscribe', broadcast=True)

@@ -55,7 +55,7 @@ def connect_subscriber():
             nick=assigned_nick, color=assigned_color)
     else:
         log.info("Couldn't assign a nick, disconnecting the subscriber...")
-        emit("log message",
+        emit("log_message",
              {"data": "Failed to assign you a nick", "fatal": True})
         return
 
@@ -78,7 +78,7 @@ def connect_subscriber():
 @socketio.on("help", namespace='/subscribe')
 def display_help(_):
     log.info("help requested")
-    emit("log message", {
+    emit("log_message", {
         "data": 'Commands are: "/help" "/nick <new_nick>", "/pause", "/resume"'
                 ', "/seek <int>"'})
 
@@ -90,7 +90,7 @@ def request_pause(_):
     global current_state
     current_state = PAUSED
     emit(
-        "log message", {
+        "log_message", {
             "data": 'Pause requested by "{}"'.format(requester_nick),
             "state": STATE_NAMES[current_state]
         }, namespace="/subscribe", broadcast=True, include_self=True)
@@ -104,7 +104,7 @@ def request_resume(_):
     global current_state
     current_state = PLAYING
     emit(
-        "log message", {
+        "log_message", {
             "data": 'Resume requested by "{}"'.format(requester_nick),
             "state": STATE_NAMES[current_state]
         }, namespace="/subscribe", broadcast=True, include_self=True)
@@ -118,12 +118,12 @@ def request_seek(dst):
     try:
         seek_dst = int(dst['seek'])
     except (KeyError, ValueError):
-        emit("log message", {
+        emit("log_message", {
             "data": 'Invalid seek requested ({}). Must be in seconds.'.format(
                 dst['seek'])}, namespace="/subscribe")
         return
     else:
-        emit("log message", {
+        emit("log_message", {
             "data": 'Seek requested to {} by "{}"'.format(seek_dst,
                                                           requester_nick)},
              namespace="/subscribe", broadcast=True, include_self=True)
@@ -140,17 +140,17 @@ def change_nick(msg):
     try:
         new_nick = msg['new']
     except KeyError:
-        emit("log message", {"data": "obey the API! (missing key 'new')"})
+        emit("log_message", {"data": "obey the API! (missing key 'new')"})
         return
     if old_nick == new_nick:
-        emit("log message",
+        emit("log_message",
              {"data": 'Your nick is already "{}"'.format(new_nick)})
         return
     else:
         other_nicks = {z.nick for z in subscribers.values()}.union(
             {z.nick for z in publishers.values()})
         if new_nick in other_nicks:
-            emit("log message",
+            emit("log_message",
                  {"data": "Nick {} already exists".format(new_nick)})
             return
 
@@ -174,7 +174,7 @@ def broadcast_message(message):
     except KeyError:
         pass
     else:
-        emit('log message', {'data': content, 'nick': nick, 'color': color},
+        emit('log_message', {'data': content, 'nick': nick, 'color': color},
              broadcast=True, include_self=False)
         return message['data']
 
