@@ -2,6 +2,7 @@ import logging
 import sys
 import os
 import urllib.request
+import time
 import asyncio
 
 import gi
@@ -56,7 +57,14 @@ class IntrospectiveVLCClient:
 
     def __initialize_player(self):
         log.info('initializing player')
-        self._player = Playerctl.Player(player_name='vlc')
+        while True:
+            self._player = Playerctl.Player(player_name='vlc')
+            if self._player.get_property('status'):
+                break
+            else:
+                log.error("Couldn't find player, retrying...")
+                time.sleep(1)
+
         self._player.connect('playback-status::playing', self._on_play)
         self._player.connect('playback-status::paused', self._on_pause)
         self._player.connect('playback-status::stopped', self._on_stop)
