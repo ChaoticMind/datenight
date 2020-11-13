@@ -39,7 +39,7 @@ class IntrospectiveVLCClient:
         initial_metadata = self._player.get_property("metadata")
         if initial_metadata:
             self._on_metadata(self._player, initial_metadata,
-                              dontsend=True)  # set metadata
+                              send=False)  # set metadata
 
         if self._title:
             log.info(f"Player is running with {self._title}")
@@ -98,7 +98,7 @@ class IntrospectiveVLCClient:
             log.warning("seek destination too large, ignoring...")
 
     # events occurred
-    def _on_metadata(self, player, e, dontsend=False):
+    def _on_metadata(self, player, e, *, send=True):
         log.debug(f"New metadata: {e}")
         # set title
         if 'xesam:artist' in e.keys() and 'xesam:title' in e.keys():  # music
@@ -130,7 +130,7 @@ class IntrospectiveVLCClient:
             self._title = title
             if length:
                 self._length = length
-            if not dontsend:
+            if send:
                 asyncio.create_task(
                     # too spammy on file change if show is True
                     self._report_and_reschedule(show=False)
