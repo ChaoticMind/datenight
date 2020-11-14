@@ -5,7 +5,7 @@ from flask import request
 from flask_socketio import emit
 
 from server import socketio, publishers, subscribers
-from server import current_state, STATE_NAMES, PLAYING, PAUSED
+from server import current_state, PlayerState
 from server import subscribers_nick_presets, subscribers_color_presets
 from server.helpers import clean_publishers, clean_subscribers
 
@@ -70,7 +70,7 @@ def connect_subscriber():
          broadcast=True, include_self=False)
 
     emit('update publishers',
-         {'data': clean_publishers(), 'state': STATE_NAMES[current_state]})
+         {'data': clean_publishers(), 'state': current_state.value})
     return True
 
 
@@ -87,11 +87,11 @@ def request_pause(_):
     log.info(f"pause requested by {request.sid}")
     requester_nick = subscribers[request.sid].nick
     global current_state
-    current_state = PAUSED
+    current_state = PlayerState.PAUSED
     emit(
         "log_message", {
             "data": f'Pause requested by "{requester_nick}"',
-            "state": STATE_NAMES[current_state]
+            "state": current_state.value
         }, namespace="/subscribe", broadcast=True, include_self=True)
     emit("pause", namespace="/publish", broadcast=True)
 
@@ -101,11 +101,11 @@ def request_resume(_):
     log.info(f"resume requested by {request.sid}")
     requester_nick = subscribers[request.sid].nick
     global current_state
-    current_state = PLAYING
+    current_state = PlayerState.PLAYING
     emit(
         "log_message", {
             "data": f'Resume requested by "{requester_nick}"',
-            "state": STATE_NAMES[current_state]
+            "state": current_state.value
         }, namespace="/subscribe", broadcast=True, include_self=True)
     emit("resume", namespace="/publish", broadcast=True)
 

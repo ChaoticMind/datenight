@@ -61,7 +61,7 @@ function websock() {
     const max = 5*60;
     const pos = Math.floor(Math.random() * (max + 1));
     const full_position = pos + '/' + max;
-    socket.emit('update state', {'status': 'playing', position: full_position, 'title': "some_title", "show": true}, function() {
+    socket.emit('update state', {'status': 'Playing', position: full_position, 'title': "some_title", "show": true}, function() {
       add_to_log("Successfully sent state update...");
     });
   };

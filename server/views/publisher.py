@@ -8,6 +8,7 @@ from flask import request
 from flask_socketio import emit, disconnect
 
 from server import socketio, publishers, subscribers
+from server import PlayerState
 from server.helpers import clean_publishers
 
 log = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ class Publisher:
         self.ua = "unknown"
         self.nick = nick
         self.latency = -1
-        self.status = 'stopped'
+        self.status = PlayerState.STOPPED.value
         self.position = -1
         self.title = ""
         self.__ping_token = None
@@ -120,9 +121,9 @@ def message_trigger(message):
     nick = publishers[request.sid].nick
     # TODO: accept partial updates
     try:
-        publishers[request.sid].status = message['status']
-        publishers[request.sid].title = message['title']
-        publishers[request.sid].position = message['position']
+        status = message['status']
+        title = message['title']
+        position = message['position']
         show = message.get('show', False)
     except KeyError as e:
         msg = f"Received missing data: {e}"
@@ -131,6 +132,17 @@ def message_trigger(message):
              broadcast=False)
         return False
     else:
+        try:
+            publishers[request.sid].status = PlayerState(status).value
+        except ValueError:
+            msg = f"Received bad state: {status}"
+            log.error(msg)
+            emit('log_message', {'data': msg})
+            return False
+        else:
+            publishers[request.sid].title = title
+            publishers[request.sid].position = position
+
         emit('update publishers',
              {'data': clean_publishers(), 'update': nick, 'show': show},
              namespace='/subscribe', broadcast=True)
