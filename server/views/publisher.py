@@ -10,6 +10,7 @@ from flask_socketio import emit, disconnect
 from server import socketio, publishers, subscribers
 from server import PlayerState
 from server.helpers import clean_publishers
+from . import SyncSuggestion
 
 log = logging.getLogger(__name__)
 
@@ -125,6 +126,7 @@ def message_trigger(message):
         title = message['title']
         position = message['position']
         show = message.get('show', False)
+        suggest_sync = message.get('suggest_sync', None)
     except KeyError as e:
         msg = f"Received missing data: {e}"
         log.error(msg)
@@ -147,6 +149,44 @@ def message_trigger(message):
         emit('update publishers',
              {'data': clean_publishers(), 'update': nick, 'show': show},
              namespace='/subscribe', broadcast=True)
+
+        if suggest_sync:
+            broadcast_sync_suggestion(suggest_sync, PlayerState(status))
+
+
+def broadcast_sync_suggestion(suggest_sync, status: PlayerState):
+    if suggest_sync == SyncSuggestion.STATE.value:
+        global current_state
+        request_str = "Pause"  # default/catch-all
+        emit_str = "pause"
+
+        if status == PlayerState.PLAYING:
+            current_state = PlayerState.PLAYING
+            request_str = "Resume"
+            emit_str = "resume"
+        if status == PlayerState.PAUSED:
+            current_state = PlayerState.PAUSED
+            request_str = "Pause"
+            emit_str = "pause"
+
+        requester_nick = publishers[request.sid].nick
+        socketio.emit(
+            "log_message", {
+                "data": f'{request_str} requested by "{requester_nick}"',
+                "state": current_state.value
+            },
+            namespace="/subscribe")
+        emit(emit_str, namespace="/publish",
+             broadcast=True, include_self=False)
+
+    elif suggest_sync == SyncSuggestion.SEEK.value:
+        pass
+
+    else:
+        msg = f"Received bad suggest_sync: {suggest_sync}"
+        log.error(msg)
+        emit('log_message', {'data': msg})
+        return False
 
 
 @socketio.on('latency_pong', namespace='/publish')

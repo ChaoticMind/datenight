@@ -81,6 +81,7 @@ function websock() {
         'status': 'Playing',
         position: full_position,
         "show": true,
+        "suggest_sync": "state",
       }, function() {
         add_to_log("Successfully sent state update...");
       }

@@ -5,8 +5,9 @@ import urllib.request
 import asyncio
 import time
 from functools import partial
+from typing import Optional
 
-from client.generic import PlayerState
+from client.generic import PlayerState, SyncSuggestion
 
 log = logging.getLogger(__name__)
 _version = (0, 0, 1)  # TODO: should be in __init__()
@@ -50,7 +51,7 @@ class ForkingClient:
         asyncio.create_task(self._fork_and_report(
             self._pause_cmd,
             self._fetch_state,
-            partial(self._report_state, True),
+            partial(self._report_state, show=False, suggest_sync=None),
         ))
 
     def resume(self):
@@ -58,7 +59,7 @@ class ForkingClient:
         asyncio.create_task(self._fork_and_report(
             self._resume_cmd,
             self._fetch_state,
-            partial(self._report_state, True),
+            partial(self._report_state, show=False, suggest_sync=None),
         ))
 
     def seek(self, seek_dst):
@@ -71,12 +72,15 @@ class ForkingClient:
         ))
 
     # periodic poll/report
-    async def _report_state(self, show=False):
+    async def _report_state(
+        self, *,
+        show=False, suggest_sync: Optional[SyncSuggestion] = None,
+    ):
         """:param show: A recommendation whether to explicitly log on
                         the subscriber side
 
         """
-        log.debug("Reporting state")
+        log.debug(f"Reporting state with {suggest_sync=}")
         if self._length:
             adjusted_position = self._position - self.offset
         else:
@@ -85,7 +89,9 @@ class ForkingClient:
             "title": self._title,
             "status": self._state.value,
             "position": "{}/{}".format(adjusted_position, self._length),
-            "show": show})
+            "show": show,
+            "suggest_sync": suggest_sync.value if suggest_sync else None,
+        })
 
     async def _fork_and_report(self, fork_cmd, *callbacks):
         await self._fork_process(fork_cmd)
@@ -109,9 +115,12 @@ class ForkingClient:
         else:
             return stdout_data.strip().decode("utf-8")
 
-    async def _fetch_state(self):
-        status = await self._fork_process(self._status_cmd)
-        return PlayerState(status)
+    async def _fetch_state(self) -> bool:
+        status_str = await self._fork_process(self._status_cmd)
+        state = PlayerState(status_str)
+        changed = state != self._state
+        self._state = state
+        return changed
 
     async def _fetch_position(self, _=None):
         try:
@@ -122,7 +131,7 @@ class ForkingClient:
         return self._position
 
     async def _poll_and_report_metadata(self):
-        state = await self._fetch_state()
+        state_changed = await self._fetch_state()
         fname = await self._fork_process(self._title_cmd)
         title = urllib.request.unquote(os.path.basename(fname))
         position = await self._fetch_position()
@@ -131,16 +140,20 @@ class ForkingClient:
         except ValueError:
             length = 0
 
-        if (state != self._state
-                or title != self._title
-                or length != self._length):
+        if state_changed:
+            suggest_sync = SyncSuggestion.STATE
+            show = True
+        elif title != self._title or length != self._length:
+            suggest_sync = None
             show = True
         else:
+            # Check seek (not implemented)
+            suggest_sync = None
             show = False
 
-        self._state, self._title = state, title
+        self._title = title
         self._position, self._length = position, length
-        await self._report_state(show=show)
+        await self._report_state(show=show, suggest_sync=suggest_sync)
 
     async def _periodic_report_metadata(self):
         elapsed = 0

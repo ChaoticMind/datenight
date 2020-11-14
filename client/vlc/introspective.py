@@ -4,10 +4,11 @@ import os
 import urllib.request
 import time
 import asyncio
+from typing import Optional
 
 import gi
 
-from client.generic import PlayerState
+from client.generic import PlayerState, SyncSuggestion, GenericPlayer
 
 gi.require_version('Playerctl', '2.0')
 from gi.repository import GLib, Playerctl  # noqa: E402
@@ -17,12 +18,13 @@ _version = (0, 0, 1)  # TODO: should be in __init__()
 log = logging.getLogger(__name__)
 
 
-class IntrospectiveVLCClient:
+class IntrospectiveVLCClient(GenericPlayer):
     """Uses GLib introspection library (see playerctl documentation)"""
     REPORT_PERIOD_S = 1
     ua = f"{sys.platform}_introspective_{'.'.join(map(str, _version))}"
 
     def __init__(self, sock, offset=0):
+        super().__init__()
         self._sock = sock
 
         self._state: PlayerState = PlayerState.PAUSED
@@ -81,6 +83,8 @@ class IntrospectiveVLCClient:
             self._player.pause()
         except GLib.GError:
             log.error("Can't play current file (if any)")
+        else:
+            self._state = PlayerState.PAUSED
 
     def resume(self):
         log.info("Received request to resume")
@@ -88,6 +92,8 @@ class IntrospectiveVLCClient:
             self._player.play()
         except GLib.GError:
             log.error("Can't resume current file (if any)")
+        else:
+            self._state = PlayerState.PLAYING
 
     def seek(self, seek_dst):
         adjusted_seek = seek_dst + self.offset
@@ -98,6 +104,8 @@ class IntrospectiveVLCClient:
             log.error("Can't seek current file (if any)")
         except OverflowError:
             log.warning("seek destination too large, ignoring...")
+        else:
+            self._position = adjusted_seek
 
     # events occurred
     def _on_metadata(self, player, e, *, send=True):
@@ -140,13 +148,21 @@ class IntrospectiveVLCClient:
 
     def _on_play(self, player, status=None):
         log.info(f"Playing: {self._title}")
-        asyncio.create_task(self._report_and_reschedule(show=True))
+        suggest_sync = (None if self._state == PlayerState.PLAYING
+                        else SyncSuggestion.STATE)
         self._state = PlayerState.PLAYING
+        asyncio.create_task(self._report_and_reschedule(
+            show=True if suggest_sync else False,
+            suggest_sync=suggest_sync))
 
     def _on_pause(self, player, status=None):
         log.info(f"Paused: {self._title}")
-        asyncio.create_task(self._report_and_reschedule(show=True))
+        suggest_sync = (None if self._state == PlayerState.PAUSED
+                        else SyncSuggestion.STATE)
         self._state = PlayerState.PAUSED
+        asyncio.create_task(self._report_and_reschedule(
+            show=True if suggest_sync else False,
+            suggest_sync=suggest_sync))
 
     def _on_stop(self, player, status=None):
         log.info("Player is stopped...")
@@ -161,12 +177,20 @@ class IntrospectiveVLCClient:
 
     def _on_seek(self, player, seek):
         log.info(f'Seeked to {seek}')
-        asyncio.create_task(self._report_and_reschedule(show=False))
+        suggest_sync = None  # not yet implemented
+        asyncio.create_task(self._report_and_reschedule(
+            show=True if suggest_sync else False,
+            suggest_sync=suggest_sync))
 
     # periodic report
-    async def _report_and_reschedule(self, show=False):
+    async def _report_and_reschedule(
+        self, *,
+        show=False, suggest_sync: Optional[SyncSuggestion] = None,
+    ):
         """:param show: A recommendation whether to explicitly log on the
         subscriber side
+        :param suggest_sync: A recommendation whether other players should
+        match this player's state (for example if played/paused/sought)
 
         """
         self.handle.cancel()
@@ -176,12 +200,14 @@ class IntrospectiveVLCClient:
             adjusted_position = self._position - self.offset
         else:
             adjusted_position = self._position
-        log.debug("Reporting state")
+        log.debug(f"Reporting state with {suggest_sync=}")
         await self._sock.emit("update state", {
             "title": self._title,
             "status": self._state.value,
             "position": "{}/{}".format(adjusted_position, self._length),
-            "show": show})
+            "show": show,
+            "suggest_sync": suggest_sync.value if suggest_sync else None,
+        })
 
         self.handle.cancel()
         self.handle = asyncio.create_task(asyncio.sleep(self.REPORT_PERIOD_S))

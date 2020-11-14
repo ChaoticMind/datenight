@@ -4,14 +4,15 @@ import os
 import urllib.request
 import asyncio
 from functools import partial
+from typing import Optional
 
-from client.generic import PlayerState
+from client.generic import PlayerState, SyncSuggestion, GenericPlayer
 
 log = logging.getLogger(__name__)
 _version = (0, 0, 1)  # TODO: should be in __init__()
 
 
-class UnixSocketClient:
+class UnixSocketClient(GenericPlayer):
     """Currently specific to vlc, but can be generalized similar to
     ForkingClient """
     REPORT_PERIOD = 1
@@ -79,13 +80,23 @@ class UnixSocketClient:
                     self._title = urllib.request.unquote(fname)
                     asyncio.create_task(self.emit_to_sock(show=True))
                 elif x in self._pause_strings:
+                    suggest_sync = (None if self._client._just_reacted_task
+                                    else SyncSuggestion.STATE)
+                    log.info(f"Reporting pause state with {suggest_sync}")
                     self._state = PlayerState.PAUSED
-                    log.info("Reporting pause state")
-                    asyncio.create_task(self.emit_to_sock(show=True))
+                    asyncio.create_task(self.emit_to_sock(
+                        show=True if suggest_sync else False,
+                        suggest_sync=suggest_sync,
+                    ))
                 elif x in self._play_strings:
+                    suggest_sync = (None if self._client._just_reacted_task
+                                    else SyncSuggestion.STATE)
+                    log.info(f"Reporting playing state with {suggest_sync=}")
                     self._state = PlayerState.PLAYING
-                    log.info("Reporting playing state")
-                    asyncio.create_task(self.emit_to_sock(show=True))
+                    asyncio.create_task(self.emit_to_sock(
+                        show=True if suggest_sync else False,
+                        suggest_sync=suggest_sync,
+                    ))
                 elif x in self._stop_strings:
                     self._state = PlayerState.STOPPED
                     self._position = 0
@@ -96,10 +107,16 @@ class UnixSocketClient:
                 elif x.startswith("status change: ( time: "):
                     try:
                         skip = len("status change: ( time: ")
-                        self._position = int(x[skip:-3])
-                        asyncio.create_task(self.emit_to_sock(show=False))
+                        reported_position = int(x[skip:-3])
                     except ValueError:
                         pass
+                    else:
+                        suggest_sync = None  # not yet implemented
+                        self._position = reported_position
+                        asyncio.create_task(self.emit_to_sock(
+                            show=True if suggest_sync else False,
+                            suggest_sync=suggest_sync,
+                        ))
                 else:  # other line starting with "status change" - unsupported
                     # e.g. volume changed
                     pass
@@ -123,12 +140,13 @@ class UnixSocketClient:
                     self._position, self._length = position, length
 
             if emit:
-                asyncio.create_task(self.emit_to_sock(show))
+                asyncio.create_task(self.emit_to_sock(show=show))
 
-        async def emit_to_sock(self, show):
+        async def emit_to_sock(
+                self, *, show, suggest_sync: Optional[SyncSuggestion] = None):
             # could reset the periodic probe here, but it's not really required
             # introspective client behavior is to reset it atm
-            log.debug("Reporting state")
+            log.debug(f"Reporting state with {suggest_sync=}")
             if self._length:
                 adjusted_position = self._position - self._client.offset
             else:
@@ -137,7 +155,9 @@ class UnixSocketClient:
                 "title": self._title,
                 "status": self._state.value,
                 "position": "{}/{}".format(adjusted_position, self._length),
-                "show": show})
+                "show": show,
+                "suggest_sync": suggest_sync.value if suggest_sync else None,
+            })
 
         def connection_lost(self, e):
             log.debug(
@@ -147,6 +167,7 @@ class UnixSocketClient:
             asyncio.ensure_future(self._client.open_unixsock())
 
     def __init__(self, websock, offset=0):
+        super().__init__()
         # self.reader = None
         # self.writer = None
         self.protocol = None
@@ -181,26 +202,35 @@ class UnixSocketClient:
         log.info("Received request to pause")
         log.info(f"Current state is: {self.protocol._state.value}")
         if self.protocol._state == PlayerState.PLAYING:
+            self.protocol._state = PlayerState.PAUSED
             self.protocol.send_data("pause\n")
+            self._initiate_just_reacted()
 
     def resume(self):
         log.info("Received request to resume")
         log.info(f"Current state is: {self.protocol._state.value}")
         if self.protocol._state == PlayerState.PAUSED:
+            self.protocol._state = PlayerState.PLAYING
             self.protocol.send_data("pause\n")  # means "resume"
+            self._initiate_just_reacted()
         elif self.protocol._state == PlayerState.STOPPED:
             # 'play' only means start for the vlc rc client
+            self.protocol._state = PlayerState.PLAYING
             self.protocol.send_data("play\n")
+            self._initiate_just_reacted()
 
     def seek(self, seek_dst):
         adjusted_seek = seek_dst + self.offset
         log.info(f"Received request to seek to {adjusted_seek}")
+        self.protocol._position = adjusted_seek
         if self.protocol._state == PlayerState.PAUSED:
             self.protocol.send_data("pause\n")  # resume
             self.protocol.send_data(f"seek {adjusted_seek}\n")
             self.protocol.send_data("pause\n")  # pause
+            self._initiate_just_reacted()
         else:
             self.protocol.send_data(f"seek {adjusted_seek}\n")
+            self._initiate_just_reacted()
             self._periodic_probe()
 
     def _periodic_probe(self):
