@@ -7,6 +7,8 @@ import asyncio
 
 import gi
 
+from client.generic import PlayerState
+
 gi.require_version('Playerctl', '2.0')
 from gi.repository import GLib, Playerctl  # noqa: E402
 
@@ -23,7 +25,7 @@ class IntrospectiveVLCClient:
     def __init__(self, sock, offset=0):
         self._sock = sock
 
-        self._state = "Paused"
+        self._state: PlayerState = PlayerState.PAUSED
         self._title = ""
         self._position = 0
         self._length = 0
@@ -33,7 +35,7 @@ class IntrospectiveVLCClient:
 
         log.info(f"Initialized {self.__class__.__name__} player")
         self.handle = asyncio.create_task(self._report_and_reschedule())
-        # triggerring _report_and_reschedule() not strictly necessary since
+        # triggering _report_and_reschedule() not strictly necessary since
         # on_stop/_on_play/_on_pause are called next, but just in case.
 
         initial_metadata = self._player.get_property("metadata")
@@ -138,17 +140,17 @@ class IntrospectiveVLCClient:
 
     def _on_play(self, player, status=None):
         log.info(f"Playing: {self._title}")
-        self._state = "Playing"
         asyncio.create_task(self._report_and_reschedule(show=True))
+        self._state = PlayerState.PLAYING
 
     def _on_pause(self, player, status=None):
         log.info(f"Paused: {self._title}")
-        self._state = "Paused"
         asyncio.create_task(self._report_and_reschedule(show=True))
+        self._state = PlayerState.PAUSED
 
     def _on_stop(self, player, status=None):
         log.info("Player is stopped...")
-        self._state = "Stopped"
+        self._state = PlayerState.STOPPED
         self._title = ""
         self._length = 0
         asyncio.create_task(self._report_and_reschedule(show=True))
@@ -177,7 +179,7 @@ class IntrospectiveVLCClient:
         log.debug("Reporting state")
         await self._sock.emit("update state", {
             "title": self._title,
-            "status": self._state,
+            "status": self._state.value,
             "position": "{}/{}".format(adjusted_position, self._length),
             "show": show})
 

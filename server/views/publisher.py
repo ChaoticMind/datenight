@@ -23,7 +23,7 @@ class Publisher:
         self.ua = "unknown"
         self.nick = nick
         self.latency = -1
-        self.status = PlayerState.STOPPED.value
+        self.status = PlayerState.UNKNOWN.value
         self.position = -1
         self.title = ""
         self.__ping_token = None
@@ -138,6 +138,7 @@ def message_trigger(message):
             msg = f"Received bad state: {status}"
             log.error(msg)
             emit('log_message', {'data': msg})
+            publishers[request.sid].status = PlayerState.UNKNOWN.value
             return False
         else:
             publishers[request.sid].title = title

@@ -14,6 +14,7 @@ class PlayerState(Enum):
     PLAYING = "Playing"
     PAUSED = "Paused"
     STOPPED = "Stopped"
+    UNKNOWN = "Unknown"
 
 
 # globals

@@ -6,6 +6,8 @@ import asyncio
 import time
 from functools import partial
 
+from client.generic import PlayerState
+
 log = logging.getLogger(__name__)
 _version = (0, 0, 1)  # TODO: should be in __init__()
 
@@ -25,7 +27,7 @@ class ForkingClient:
         self._sock = sock
         self._define_commands()
 
-        self._state = "Paused"
+        self._state: PlayerState = PlayerState.PAUSED
         self._title = ""
         self._position = 0
         self._length = 0
@@ -81,7 +83,7 @@ class ForkingClient:
             adjusted_position = self._position
         await self._sock.emit("update state", {
             "title": self._title,
-            "status": self._state,
+            "status": self._state.value,
             "position": "{}/{}".format(adjusted_position, self._length),
             "show": show})
 
@@ -108,8 +110,8 @@ class ForkingClient:
             return stdout_data.strip().decode("utf-8")
 
     async def _fetch_state(self):
-        self._state = await self._fork_process(self._status_cmd)
-        return self._state
+        status = await self._fork_process(self._status_cmd)
+        return PlayerState(status)
 
     async def _fetch_position(self, _=None):
         try:

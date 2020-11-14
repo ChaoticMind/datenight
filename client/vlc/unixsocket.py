@@ -5,6 +5,8 @@ import urllib.request
 import asyncio
 from functools import partial
 
+from client.generic import PlayerState
+
 log = logging.getLogger(__name__)
 _version = (0, 0, 1)  # TODO: should be in __init__()
 
@@ -28,12 +30,7 @@ class UnixSocketClient:
                                   "status change: ( stop state: 0 )",
                                   "status change: ( pause state: 4 ): End"]
 
-            self._state_str = {
-                0: "Paused",
-                1: "Playing",
-                2: "Stopped"
-            }
-            self._state = 0
+            self._state: PlayerState = PlayerState.PAUSED
             self._title = ""
             self._position = 0
             self._length = 0
@@ -82,15 +79,15 @@ class UnixSocketClient:
                     self._title = urllib.request.unquote(fname)
                     asyncio.create_task(self.emit_to_sock(show=True))
                 elif x in self._pause_strings:
-                    self._state = 0
+                    self._state = PlayerState.PAUSED
                     log.info("Reporting pause state")
                     asyncio.create_task(self.emit_to_sock(show=True))
                 elif x in self._play_strings:
-                    self._state = 1
+                    self._state = PlayerState.PLAYING
                     log.info("Reporting playing state")
                     asyncio.create_task(self.emit_to_sock(show=True))
                 elif x in self._stop_strings:
-                    self._state = 2
+                    self._state = PlayerState.STOPPED
                     self._position = 0
                     self._length = 0
                     self._title = ""
@@ -138,7 +135,7 @@ class UnixSocketClient:
                 adjusted_position = self._position
             await self._client.websock.emit("update state", {
                 "title": self._title,
-                "status": self._state_str[self._state],
+                "status": self._state.value,
                 "position": "{}/{}".format(adjusted_position, self._length),
                 "show": show})
 
@@ -182,29 +179,26 @@ class UnixSocketClient:
     # actions requested
     def pause(self):
         log.info("Received request to pause")
-        log.info(f"Current state is: {self.protocol._state}")
-        # 0: "Paused",
-        # 1: "Playing",
-        # 2: "Stopped"
-        if self.protocol._state == 1:
+        log.info(f"Current state is: {self.protocol._state.value}")
+        if self.protocol._state == PlayerState.PLAYING:
             self.protocol.send_data("pause\n")
 
     def resume(self):
         log.info("Received request to resume")
-        log.info(f"Current state is: {self.protocol._state}")
-        if self.protocol._state == 0:
+        log.info(f"Current state is: {self.protocol._state.value}")
+        if self.protocol._state == PlayerState.PAUSED:
             self.protocol.send_data("pause\n")  # means "resume"
-        elif self.protocol._state == 2:
+        elif self.protocol._state == PlayerState.STOPPED:
             # 'play' only means start for the vlc rc client
             self.protocol.send_data("play\n")
 
     def seek(self, seek_dst):
         adjusted_seek = seek_dst + self.offset
         log.info(f"Received request to seek to {adjusted_seek}")
-        if self.protocol._state == 0:
-            self.protocol.send_data("pause\n")
+        if self.protocol._state == PlayerState.PAUSED:
+            self.protocol.send_data("pause\n")  # resume
             self.protocol.send_data(f"seek {adjusted_seek}\n")
-            self.protocol.send_data("pause\n")
+            self.protocol.send_data("pause\n")  # pause
         else:
             self.protocol.send_data(f"seek {adjusted_seek}\n")
             self._periodic_probe()
