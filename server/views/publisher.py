@@ -176,7 +176,7 @@ def broadcast_sync_suggestion(suggest_sync, status: PlayerState):
                 "state": current_state.value
             },
             namespace="/subscribe")
-        emit(emit_str, namespace="/publish",
+        emit(emit_str, {'explicit': False}, namespace="/publish",
              broadcast=True, include_self=False)
 
     elif suggest_sync == SyncSuggestion.SEEK.value:

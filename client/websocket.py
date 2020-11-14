@@ -30,18 +30,18 @@ class PublishNamespace(AsyncClientNamespace):
         log.debug("Received latency_ping...")
         await self.emit('latency_pong', msg)
 
-    def on_pause(self):
-        log.info("Received pause request")
+    def on_pause(self, payload):
+        log.info(f"Received pause request: {payload}")
         self.datenight_client.pause()
 
-    def on_resume(self):
-        log.info("Received resume request")
+    def on_resume(self, payload):
+        log.info(f"Received resume request: {payload}")
         self.datenight_client.resume()
 
-    def on_seek(self, msg):
-        log.info(f"Received seek request to {msg}")
+    def on_seek(self, payload):
+        log.info(f"Received seek request to {payload}")
         try:
-            seek_dst = int(msg['seek'])
+            seek_dst = int(payload['seek'])
         except (KeyError, ValueError):
             log.info("Invalid seek destination, ignoring...")
         else:

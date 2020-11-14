@@ -93,7 +93,7 @@ def request_pause(_):
             "data": f'Pause requested by "{requester_nick}"',
             "state": current_state.value
         }, namespace="/subscribe", broadcast=True, include_self=True)
-    emit("pause", namespace="/publish", broadcast=True)
+    emit("pause", {'explicit': True}, namespace="/publish", broadcast=True)
 
 
 @socketio.on("resume", namespace='/subscribe')
@@ -107,7 +107,7 @@ def request_resume(_):
             "data": f'Resume requested by "{requester_nick}"',
             "state": current_state.value
         }, namespace="/subscribe", broadcast=True, include_self=True)
-    emit("resume", namespace="/publish", broadcast=True)
+    emit("resume", {'explicit': True}, namespace="/publish", broadcast=True)
 
 
 @socketio.on("seek", namespace='/subscribe')
@@ -126,7 +126,8 @@ def request_seek(dst):
             "data": 'Seek requested to {} by "{}"'.format(seek_dst,
                                                           requester_nick)},
              namespace="/subscribe", broadcast=True, include_self=True)
-        emit("seek", {"seek": seek_dst}, namespace="/publish", broadcast=True)
+        emit("seek", {"seek": seek_dst, 'explicit': True},
+             namespace="/publish", broadcast=True)
 
 
 @socketio.on("change nick", namespace='/subscribe')
