@@ -20,6 +20,11 @@ function websock() {
   socket.on('connect', function() {
     add_to_log("Connected...");
     socket.emit('set ua', {'user_agent': "web_client_test"});
+    socket.emit('update state', {
+      "title": "",
+      "position": "",
+      "status": "Stopped",
+    });
   });
 
   socket.on('disconnect', function() {
@@ -43,10 +48,20 @@ function websock() {
 
   socket.on('pause', function(msg) {
     add_to_log("Pause requested");
+    socket.emit('update state', {
+      "title": "",
+      "position": "",
+      "status": "Paused",
+    });
   });
 
   socket.on('resume', function(msg) {
     add_to_log("Resume requested");
+    socket.emit('update state', {
+      "title": "",
+      "position": "",
+      "status": "Playing",
+    });
   });
 
   socket.on('seek', function(msg) {
@@ -61,9 +76,15 @@ function websock() {
     const max = 5*60;
     const pos = Math.floor(Math.random() * (max + 1));
     const full_position = pos + '/' + max;
-    socket.emit('update state', {'status': 'Playing', position: full_position, 'title': "some_title", "show": true}, function() {
-      add_to_log("Successfully sent state update...");
-    });
+    socket.emit('update state', {
+        'title': "some_title",
+        'status': 'Playing',
+        position: full_position,
+        "show": true,
+      }, function() {
+        add_to_log("Successfully sent state update...");
+      }
+    );
   };
 
   document.getElementById("disconnect").onclick = function() {
