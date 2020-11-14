@@ -23,6 +23,7 @@ function websock() {
     socket.emit('update state', {
       "title": "",
       "position": "",
+      "length": "",
       "status": "Stopped",
     });
   });
@@ -51,6 +52,7 @@ function websock() {
     socket.emit('update state', {
       "title": "",
       "position": "",
+      "length": "",
       "status": "Paused",
     });
   });
@@ -60,6 +62,7 @@ function websock() {
     socket.emit('update state', {
       "title": "",
       "position": "",
+      "length": "",
       "status": "Playing",
     });
   });
@@ -72,18 +75,34 @@ function websock() {
     socket.emit('latency_pong', {'token': msg.token});
   });
 
-  document.getElementById("send-state").onclick = function() {
-    const max = 5*60;
+  document.getElementById("send-play-state").onclick = function() {
+    const max = 3*60;
     const pos = Math.floor(Math.random() * (max + 1));
-    const full_position = pos + '/' + max;
     socket.emit('update state', {
         'title': "some_title",
         'status': 'Playing',
-        position: full_position,
+        position: pos,
+        'length': max,
         "show": true,
         "suggest_sync": "state",
       }, function() {
-        add_to_log("Successfully sent state update...");
+        add_to_log("Successfully sent play state update...");
+      }
+    );
+  };
+
+  document.getElementById("send-seek-state").onclick = function() {
+    const max = 3*60;
+    const pos = Math.floor(Math.random() * (max + 1));
+    socket.emit('update state', {
+        'title': "some_title",
+        'status': 'Playing',
+        position: pos,
+        'length': max,
+        "show": true,
+        "suggest_sync": "seek",
+      }, function() {
+        add_to_log("Successfully sent seek state update...");
       }
     );
   };

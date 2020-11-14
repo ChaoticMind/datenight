@@ -63,7 +63,6 @@ class UnixSocketClient(GenericPlayer):
         def data_received(self, data):
             decoded = data.decode('utf-8').strip()
             log.debug(f'Data received on the unix socket: {decoded}')
-            emit = False
 
             lines = decoded.split('\r\n')
             one_shots = [line for line in lines
@@ -111,7 +110,8 @@ class UnixSocketClient(GenericPlayer):
                     except ValueError:
                         pass
                     else:
-                        suggest_sync = None  # not yet implemented
+                        suggest_sync = (None if self._client._just_reacted_task
+                                        else SyncSuggestion.SEEK)
                         self._position = reported_position
                         asyncio.create_task(self.emit_to_sock(
                             show=True if suggest_sync else False,
@@ -131,16 +131,12 @@ class UnixSocketClient(GenericPlayer):
                     return
                 else:
                     if length != self._length or title != self._title:
-                        emit, show = True, True
+                        self._length = length
+                        self._title = title
+                        asyncio.create_task(self.emit_to_sock(show=True))
                     elif position != self._position:
-                        emit, show = True, False
-                    else:
-                        emit = False
-                    self._title = title
-                    self._position, self._length = position, length
-
-            if emit:
-                asyncio.create_task(self.emit_to_sock(show=show))
+                        self._position = position
+                        asyncio.create_task(self.emit_to_sock(show=False))
 
         async def emit_to_sock(
                 self, *, show, suggest_sync: Optional[SyncSuggestion] = None):
@@ -154,7 +150,8 @@ class UnixSocketClient(GenericPlayer):
             await self._client.websock.emit("update state", {
                 "title": self._title,
                 "status": self._state.value,
-                "position": "{}/{}".format(adjusted_position, self._length),
+                "position": adjusted_position,
+                "length": self._length,
                 "show": show,
                 "suggest_sync": suggest_sync.value if suggest_sync else None,
             })

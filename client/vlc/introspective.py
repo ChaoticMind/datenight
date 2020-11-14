@@ -1,4 +1,5 @@
 import logging
+import math
 import sys
 import os
 import urllib.request
@@ -99,7 +100,7 @@ class IntrospectiveVLCClient(GenericPlayer):
         adjusted_seek = seek_dst + self.offset
         log.info(f"Received request to seek to {adjusted_seek}")
         try:
-            self._player.set_position(adjusted_seek * 1000000)
+            self._player.set_position(adjusted_seek * 1_000_000)
         except GLib.GError:
             log.error("Can't seek current file (if any)")
         except OverflowError:
@@ -132,7 +133,7 @@ class IntrospectiveVLCClient(GenericPlayer):
 
         # get length
         if 'mpris:length' in e.keys():
-            length = int(e['mpris:length']) // 1000000
+            length = int(e['mpris:length']) // 1_000_000
         else:
             length = 0
 
@@ -177,7 +178,11 @@ class IntrospectiveVLCClient(GenericPlayer):
 
     def _on_seek(self, player, seek):
         log.info(f'Seeked to {seek}')
-        suggest_sync = None  # not yet implemented
+        position = self._player.get_property("position") // 1_000_000
+        suggest_sync = (None
+                        if math.isclose(position, self._position, abs_tol=0.2)
+                        else SyncSuggestion.SEEK)
+        self._position = position
         asyncio.create_task(self._report_and_reschedule(
             show=True if suggest_sync else False,
             suggest_sync=suggest_sync))
@@ -204,7 +209,8 @@ class IntrospectiveVLCClient(GenericPlayer):
         await self._sock.emit("update state", {
             "title": self._title,
             "status": self._state.value,
-            "position": "{}/{}".format(adjusted_position, self._length),
+            "position": adjusted_position,
+            "length": self._length,
             "show": show,
             "suggest_sync": suggest_sync.value if suggest_sync else None,
         })

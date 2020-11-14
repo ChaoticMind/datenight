@@ -26,6 +26,7 @@ class Publisher:
         self.latency = -1
         self.status = PlayerState.UNKNOWN.value
         self.position = -1
+        self.length = -1
         self.title = ""
         self.__ping_token = None
         self.__ping_ts = None
@@ -70,8 +71,13 @@ class Publisher:
 
     def dict_repr(self):
         """Don't expose private data, this is sent over the wire"""
-        return {'status': self.status, 'position': self.position,
-                'latency': self.latency, "title": self.title, 'ua': self.ua}
+        return {
+            'status': self.status,
+            'position': f'{self.position}/{self.length}',
+            'latency': self.latency,
+            'title': self.title,
+            'ua': self.ua,
+        }
 
     def remove_timeouts(self):
         log.info(f"Removing timers from {self.__sid}")
@@ -125,6 +131,7 @@ def message_trigger(message):
         status = message['status']
         title = message['title']
         position = message['position']
+        length = message['length']
         show = message.get('show', False)
         suggest_sync = message.get('suggest_sync', None)
     except KeyError as e:
@@ -145,16 +152,21 @@ def message_trigger(message):
         else:
             publishers[request.sid].title = title
             publishers[request.sid].position = position
+            publishers[request.sid].length = length
 
         emit('update publishers',
              {'data': clean_publishers(), 'update': nick, 'show': show},
              namespace='/subscribe', broadcast=True)
 
         if suggest_sync:
-            broadcast_sync_suggestion(suggest_sync, PlayerState(status))
+            broadcast_sync_suggestion(
+                suggest_sync, PlayerState(status), position)
 
 
-def broadcast_sync_suggestion(suggest_sync, status: PlayerState):
+def broadcast_sync_suggestion(
+        suggest_sync: bool, status: PlayerState, position: int):
+    requester_nick = publishers[request.sid].nick
+
     if suggest_sync == SyncSuggestion.STATE.value:
         global current_state
         request_str = "Pause"  # default/catch-all
@@ -169,7 +181,6 @@ def broadcast_sync_suggestion(suggest_sync, status: PlayerState):
             request_str = "Pause"
             emit_str = "pause"
 
-        requester_nick = publishers[request.sid].nick
         socketio.emit(
             "log_message", {
                 "data": f'{request_str} requested by "{requester_nick}"',
@@ -180,7 +191,13 @@ def broadcast_sync_suggestion(suggest_sync, status: PlayerState):
              broadcast=True, include_self=False)
 
     elif suggest_sync == SyncSuggestion.SEEK.value:
-        pass
+        socketio.emit(
+            "log_message", {
+                "data": f'Seek requested by "{requester_nick}"',
+            },
+            namespace="/subscribe")
+        emit("seek", {"seek": position, "explicit": False}, namespace="/publish",
+             broadcast=True, include_self=False)
 
     else:
         msg = f"Received bad suggest_sync: {suggest_sync}"

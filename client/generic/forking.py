@@ -1,10 +1,10 @@
 import logging
+import math
 import sys
 import os
 import urllib.request
 import asyncio
 import time
-from functools import partial
 from typing import Optional
 
 from client.generic import PlayerState, SyncSuggestion
@@ -22,6 +22,7 @@ class ForkingClient:
 
     """
     POLL_PERIOD_S = 0.9
+    POLL_SEEK_TOLERANCE_S = 2.2
     ua = f"{sys.platform}_forking_{'.'.join(map(str, _version))}"
 
     def __init__(self, sock, offset=0):
@@ -51,7 +52,7 @@ class ForkingClient:
         asyncio.create_task(self._fork_and_report(
             self._pause_cmd,
             self._fetch_state,
-            partial(self._report_state, show=False, suggest_sync=None),
+            self._report_state,
         ))
 
     def resume(self):
@@ -59,12 +60,13 @@ class ForkingClient:
         asyncio.create_task(self._fork_and_report(
             self._resume_cmd,
             self._fetch_state,
-            partial(self._report_state, show=False, suggest_sync=None),
+            self._report_state,
         ))
 
     def seek(self, seek_dst):
         adjusted_seek = seek_dst + self.offset
         log.info(f"Received request to seek to {adjusted_seek}")
+        self._position = adjusted_seek
         asyncio.create_task(self._fork_and_report(
             self._seek_cmd.format(seek=adjusted_seek),
             self._fetch_position,
@@ -78,6 +80,8 @@ class ForkingClient:
     ):
         """:param show: A recommendation whether to explicitly log on
                         the subscriber side
+        :param suggest_sync: A recommendation whether other players should
+        match this player's state (for example if played/paused/sought)
 
         """
         log.debug(f"Reporting state with {suggest_sync=}")
@@ -88,7 +92,8 @@ class ForkingClient:
         await self._sock.emit("update state", {
             "title": self._title,
             "status": self._state.value,
-            "position": "{}/{}".format(adjusted_position, self._length),
+            "position": adjusted_position,
+            "length": self._length,
             "show": show,
             "suggest_sync": suggest_sync.value if suggest_sync else None,
         })
@@ -124,11 +129,11 @@ class ForkingClient:
 
     async def _fetch_position(self, _=None):
         try:
-            self._position = int(
-                float(await self._fork_process(self._position_cmd)))
+            position = round(
+                float(await self._fork_process(self._position_cmd)), 1)
         except ValueError:
-            self._position = 0
-        return self._position
+            position = 0
+        return position
 
     async def _poll_and_report_metadata(self):
         state_changed = await self._fetch_state()
@@ -146,13 +151,16 @@ class ForkingClient:
         elif title != self._title or length != self._length:
             suggest_sync = None
             show = True
+            self._length = length
+            self._title = title
         else:
-            # Check seek (not implemented)
-            suggest_sync = None
-            show = False
+            suggest_sync = (
+                None if math.isclose(position, self._position,
+                                     abs_tol=self.POLL_SEEK_TOLERANCE_S)
+                else SyncSuggestion.SEEK)
+            show = True if suggest_sync else False
+            self._position = position
 
-        self._title = title
-        self._position, self._length = position, length
         await self._report_state(show=show, suggest_sync=suggest_sync)
 
     async def _periodic_report_metadata(self):
