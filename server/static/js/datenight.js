@@ -19,10 +19,6 @@ function initialize() {
     }
   };
 
-  document.getElementById("help-toggle").onclick = function() {
-    $('#help-screen').modal('toggle');
-  };
-
   document.getElementById("clear").onclick = function() {
     document.getElementById("log").innerHTML = "";
     add_to_log("Log cleared...");
@@ -42,7 +38,7 @@ function update_subscription_list(text) {
 
     var newElement = document.createElement("span");
     if (e == nick) {
-      newElement.className = 'own-nick';
+      newElement.className = 'own-nick fw-bold';
     }
 
     newElement.style.color = text[e].color;
@@ -204,9 +200,9 @@ function websock() {
 
   document.getElementById("current-state-btn").onclick = function() {
     if (current_state == "Paused") {
-      socket.emit('resume', null);
+      socket.emit("resume", null);
     } else if (current_state == "Playing") {
-      socket.emit('pause', null);
+      socket.emit("pause", null);
     } else {
       console.log("Unknown state, no action taken...");
       return;
@@ -218,9 +214,7 @@ function hotkeys(evt) {
   const key = evt.key.toLowerCase();
   // console.log(key);
   if (key == '?') {
-    $('#help-screen').modal('toggle');
-  } else if (key == 'escape') {
-    $('#help-screen').modal('hide');
+    new bootstrap.Modal(document.getElementById("help-screen")).show();
   }
 }
 

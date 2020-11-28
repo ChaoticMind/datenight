@@ -12,7 +12,7 @@ function add_to_log(text, color) {
 
 
   let newElement = document.createElement("div");
-  let ts_html = "<span class='timestamp'>" + timestamp + "</span> - ";
+  let ts_html = "<span class='timestamp fw-bold'>" + timestamp + "</span> - ";
   newElement.innerHTML =  ts_html;
 
 

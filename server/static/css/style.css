@@ -1,32 +1,16 @@
 body {
-}
-
-.red {
-	color: red;
+  font-size: 14px;
 }
 
 #help-toggle {
-	font-size: large;
-	position: fixed;
-	right: 10px;
-	bottom: 10px;
-}
-
-#current-state {
+  right: 10px;
+  bottom: 10px;
 }
 
 #broadcast-data {
-	min-width: 300px;
+  min-width: 300px;
 }
 
-#log {
-	margin-top: 10px;
-}
-
-.timestamp {
-	font-weight: bold;
-}
-
-.own-nick {
-	font-weight: bold;
+.modal-dialog {
+  max-width: 600px;
 }

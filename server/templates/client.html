@@ -5,11 +5,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 
 	<!-- bootstrap -->
-<!--
-	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
--->
-	<!-- <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap-theme.min.css"> -->
-	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/lib/bootstrap.min.css') }}"/>
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-CuOF+2SnTUfTwSZjCXf01h7uYhfOBuxIhGKPbfEJ3+FqH/s6cIFN9bGr1HmAg4fQ" crossorigin="anonymous">
 
 	<!-- css -->
 	<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/style.css') }}"/>
@@ -25,47 +21,40 @@
 
 <body>
 	<div id="container" class='container-fluid'>
-	<!-- <div id="container" class='container'> -->
 		<h1>Client Control Panel</h1>
 
 		<h2>Send:</h2>
 
-		<div class="row">
+		<div class="row my-1">
 			<div class="col-sm-12">
-				<button id="send-play-state" class="btn btn-default">Send "play" with random position</button>
+				<button id="send-play-state" class="btn btn-outline-success">Send "play" with random position</button>
 			</div>
 		</div>
 
-		<div class="row">
+		<div class="row my-1">
 			<div class="col-sm-12">
-				<button id="send-seek-state" class="btn btn-default">Send "seek" with random position</button>
+				<button id="send-seek-state" class="btn btn-outline-success">Send "seek" with random position</button>
 			</div>
 		</div>
 
-		<div class="row">
+		<div class="row my-1">
 			<div class="col-sm-12">
-				<button id="clear" class="btn btn-default">Clear log</button>
+				<button id="clear" class="btn btn-outline-info">Clear log</button>
 			</div>
 		</div>
 
-		<div class="row">
+		<div class="row my-1">
 			<div class="col-sm-12">
-				<button id="disconnect" class="btn btn-default">Disconnect</button>
+				<button id="disconnect" class="btn btn-outline-danger">Disconnect</button>
 			</div>
 		</div>
-
 
 		<h2>Receive:</h2>
 		<div id="log"></div>
 	</div>
 
 	<!-- bootstrap js -->
-<!--
-	<script src="https://code.jquery.com/jquery-2.2.3.min.js"></script>
-	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
--->
-	<script src="{{ url_for('static', filename='js/lib/jquery-2.2.3.min.js') }}" type="application/javascript"></script>
-	<script src="{{ url_for('static', filename='js/lib/bootstrap.min.js') }}" type="application/javascript"></script>
+	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-alpha3/dist/js/bootstrap.min.js" integrity="sha384-t6I8D5dJmMXjCsRLhSzCltuhNZg6P10kE0m0nAncLUjH6GeYLhRU1zfLoW3QNQDF" crossorigin="anonymous"></script>
 
 	<!-- js -->
 	<script src="{{ url_for('static', filename='js/util.js') }}" type="application/javascript"></script>
