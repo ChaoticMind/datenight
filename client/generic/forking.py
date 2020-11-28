@@ -7,10 +7,10 @@ import asyncio
 import time
 from typing import Optional
 
+from client import version
 from client.generic import PlayerState, SyncSuggestion
 
 log = logging.getLogger(__name__)
-_version = (0, 0, 1)  # TODO: should be in __init__()
 
 
 class ForkingClient:
@@ -23,7 +23,7 @@ class ForkingClient:
     """
     POLL_PERIOD_S = 0.9
     POLL_SEEK_TOLERANCE_S = 2.2
-    ua = f"{sys.platform}_forking_{'.'.join(map(str, _version))}"
+    ua = f"{sys.platform}_forking_{'.'.join(map(str, version))}"
 
     def __init__(self, sock, offset=0):
         self._sock = sock

@@ -1,14 +1,14 @@
 import logging
 import sys
 
+from client import version
 from client.generic.forking import ForkingClient
 
 log = logging.getLogger(__name__)
-_version = (0, 0, 1)  # TODO: should be in __init__()
 
 
 class ForkingPlayerctlClient(ForkingClient):
-    ua = f"{sys.platform}_forking_playerctl_{'.'.join(map(str, _version))}"
+    ua = f"{sys.platform}_forking_playerctl_{'.'.join(map(str, version))}"
 
     def _define_commands(self):
         self._pause_cmd = "playerctl -p vlc pause"

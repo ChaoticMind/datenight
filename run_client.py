@@ -6,13 +6,14 @@ import sys
 import subprocess
 
 import socketio
+import socketio.exceptions
 
+from client import version
 from client.websocket import PublishNamespace
 from client.vlc.playerctl import ForkingPlayerctlClient
 from client.vlc.unixsocket import UnixSocketClient
 
 log = logging.getLogger(__name__)
-_version = (0, 0, 1)  # TODO: should be accessed from one place
 
 
 def main():
@@ -46,6 +47,7 @@ def main():
                               timeout=0.5).stdout.decode('utf-8').strip()
 
     # argparse setup
+    # noinspection PyTypeChecker
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description='datenight client')
@@ -69,7 +71,7 @@ def main():
                              "local file")
     parser.add_argument('-V', '--version', action='version',
                         version="%(prog)s v{} ({})".format(
-                            '.'.join(map(str, _version)), get_commit_id()),
+                            '.'.join(map(str, version)), get_commit_id()),
                         help="Show version and exit")
 
     args = parser.parse_args()
@@ -90,6 +92,7 @@ def main():
             clients['introspective'] = IntrospectiveVLCClient
 
         try:
+            # noinspection PyUnresolvedReferences
             import gbulb
         except ImportError:
             print(

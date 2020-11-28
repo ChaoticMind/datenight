@@ -10,6 +10,7 @@ __version__ = (0, 0, 1)
 
 def main():
     # argparse setup
+    # noinspection PyTypeChecker
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description='datenight server')

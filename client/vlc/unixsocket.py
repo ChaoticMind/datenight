@@ -6,17 +6,17 @@ import asyncio
 from functools import partial
 from typing import Optional
 
+from client import version
 from client.generic import PlayerState, SyncSuggestion, GenericPlayer
 
 log = logging.getLogger(__name__)
-_version = (0, 0, 1)  # TODO: should be in __init__()
 
 
 class UnixSocketClient(GenericPlayer):
     """Currently specific to vlc, but can be generalized similar to
     ForkingClient """
     REPORT_PERIOD = 1
-    ua = f"{sys.platform}_unixsocket_{'.'.join(map(str, _version))}"
+    ua = f"{sys.platform}_unixsocket_{'.'.join(map(str, version))}"
 
     class UnixProtocol(asyncio.Protocol):
         def __init__(self, client: 'UnixSocketClient', *args, **kwargs):
@@ -161,6 +161,10 @@ class UnixSocketClient(GenericPlayer):
                 'The unix socket is now closed, cancelling periodic probe')
             if self._client.prober:
                 self._client.prober.cancel()
+            # Somehow those are not the same thing
+            # maybe helpful: https://github.com/xxleyi/learning_list/issues/120
+            # create_task raises an exception if I open and close VLC quickly.
+            # asyncio.create_task(self._client.open_unixsock())
             asyncio.ensure_future(self._client.open_unixsock())
 
     def __init__(self, websock, offset=0):

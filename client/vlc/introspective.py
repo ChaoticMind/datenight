@@ -9,12 +9,11 @@ from typing import Optional
 
 import gi
 
+from client import version
 from client.generic import PlayerState, SyncSuggestion, GenericPlayer
 
 gi.require_version('Playerctl', '2.0')
 from gi.repository import GLib, Playerctl  # noqa: E402
-
-_version = (0, 0, 1)  # TODO: should be in __init__()
 
 log = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ log = logging.getLogger(__name__)
 class IntrospectiveVLCClient(GenericPlayer):
     """Uses GLib introspection library (see playerctl documentation)"""
     REPORT_PERIOD_S = 1
-    ua = f"{sys.platform}_introspective_{'.'.join(map(str, _version))}"
+    ua = f"{sys.platform}_introspective_{'.'.join(map(str, version))}"
 
     def __init__(self, sock, offset=0):
         super().__init__()
